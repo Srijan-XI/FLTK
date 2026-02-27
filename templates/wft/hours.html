@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}Work Hours{% endblock %}
+
+{% block content %}
+<h1 class="page-title">⏱ Work Hour Analytics</h1>
+
+<!-- Period filter -->
+<div class="period-tabs">
+  <a class="tab {% if period == 'all' %}active{% endif %}" href="?period=all">All Time</a>
+  <a class="tab {% if period == 'month' %}active{% endif %}" href="?period=month">This Month</a>
+  <a class="tab {% if period == 'week' %}active{% endif %}" href="?period=week">This Week</a>
+</div>
+
+<div class="two-col">
+  <!-- Log form -->
+  <div class="card">
+    <h2>Log Hours</h2>
+    <form method="POST" action="{{ url_for('wft.log_hours') }}">
+      <label>Task *
+        <input type="text" name="task" required placeholder="e.g. Homepage design" />
+      </label>
+      <label>Client *
+        <select name="client" required>
+          <option value="" disabled selected>— Select client —</option>
+          {% for c in clients %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+          <option value="__other__">Other (type below)</option>
+        </select>
+      </label>
+      <label id="other-client-label" style="display:none">Client Name (other)
+        <input type="text" id="other-client-input" placeholder="Client name" />
+      </label>
+      <label>Hours *
+        <input type="number" name="hours" min="0.25" step="0.25" required placeholder="1.5" />
+      </label>
+      <label>Tag / Category
+        <select name="tag">
+          <option value="">— None —</option>
+          <option value="design">🎨 Design</option>
+          <option value="dev">💻 Development</option>
+          <option value="writing">✍️ Writing</option>
+          <option value="meeting">🤝 Meeting</option>
+          <option value="research">🔍 Research</option>
+          <option value="review">👁 Review</option>
+          <option value="other">📌 Other</option>
+        </select>
+      </label>
+      <label>Date
+        <input type="date" name="log_date" />
+        <small>Leave blank for today</small>
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="2"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Log →</button>
+    </form>
+  </div>
+
+  <!-- Stats -->
+  <div class="card">
+    <h2>Analytics</h2>
+    {% if stats.total_hours > 0 %}
+    <div class="stat-grid">
+      <div class="stat">
+        <span class="stat-val">{{ stats.total_hours }}h</span>
+        <span class="stat-lbl">Total Hours</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">{{ stats.daily_avg }}h</span>
+        <span class="stat-lbl">Daily Average</span>
+      </div>
+    </div>
+
+    <h3 style="margin:.75rem 0 .4rem">By Client</h3>
+    {% for client, hrs in stats.by_client.items() %}
+    <div class="bar-row">
+      <span class="bar-label">{{ client }}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:{{ (hrs / stats.total_hours * 100) | round }}%"></div>
+      </div>
+      <span class="bar-val">{{ hrs }}h</span>
+    </div>
+    {% endfor %}
+
+    {% if stats.busiest_day %}
+    <p class="busiest">🔥 Busiest: <strong>{{ stats.busiest_day }}</strong> ({{ stats.busiest_day_hours }}h)</p>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">⏱</div>
+      <p>No hours logged yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Weekly chart -->
+{% if stats.weekly_data %}
+<div class="card" style="margin-top:1.5rem">
+  <h2>Weekly Hours</h2>
+  <canvas id="weekly-chart" height="80"></canvas>
+</div>
+{% endif %}
+
+<!-- Export & log table -->
+{% if entries %}
+<div class="card" style="margin-top:1.5rem">
+  <div class="page-header" style="margin-bottom:.75rem">
+    <h2>All Entries</h2>
+    <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+      <input type="text" class="search-input" placeholder="Search…" oninput="filterTable('hours-table', this.value)" />
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.export_hours') }}">⬇ Export CSV</a>
+    </div>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="data-table sortable" id="hours-table">
+      <thead>
+        <tr>
+          <th data-col="0">Date ↕</th>
+          <th data-col="1">Task ↕</th>
+          <th data-col="2">Client ↕</th>
+          <th data-col="3">Hours ↕</th>
+          <th>Tag</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries | sort(attribute='date', reverse=True) %}
+        <tr>
+          <td>{{ e.date }}</td>
+          <td>{{ e.task }}</td>
+          <td>{{ e.client }}</td>
+          <td>{{ e.hours }}</td>
+          <td>
+            {% if e.get('tag') %}
+            <span class="tag-badge tag-{{ e.tag }}">{{ e.tag }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ e.notes or '—' }}</td>
+          <td class="action-cell">
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_hours', entry_id=e.id) }}">✏</a>
+            <form method="POST" action="{{ url_for('wft.delete_hours', entry_id=e.id) }}"
+              onsubmit="return confirm('Delete?')" style="display:inline">
+              <button class="btn btn-danger btn-sm">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  // Other client input toggle
+  document.querySelector('[name="client"]').addEventListener('change', function () {
+    const show = this.value === '__other__';
+    document.getElementById('other-client-label').style.display = show ? '' : 'none';
+    if (show) this.name = '_client_sel';
+    else { this.name = 'client'; document.getElementById('other-client-input').name = ''; }
+  });
+  document.getElementById('other-client-input').addEventListener('input', function () {
+    this.name = 'client';
+  });
+
+  // Table filter
+  function filterTable(id, q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#' + id + ' tbody tr').forEach(r => {
+      r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  // Sortable
+  document.querySelectorAll('.sortable th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = +th.dataset.col;
+      const tbody = th.closest('table').querySelector('tbody');
+      const rows = [...tbody.querySelectorAll('tr')];
+      const asc = th.dataset.order !== 'asc';
+      th.dataset.order = asc ? 'asc' : 'desc';
+      rows.sort((a, b) => {
+        const va = a.cells[col].textContent.trim();
+        const vb = b.cells[col].textContent.trim();
+        return asc ? va.localeCompare(vb, undefined, { numeric: true })
+          : vb.localeCompare(va, undefined, { numeric: true });
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+
+  // Weekly bar chart (pure canvas, no lib needed for simple bars)
+  {% if stats.weekly_data %}
+  (function () {
+    const data = {{ stats.weekly_data | tojson
+  }};
+  const canvas = document.getElementById('weekly-chart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth; canvas.width = W;
+  const H = canvas.height;
+  const maxH = Math.max(...data.map(d => d.hours), 1);
+  const barW = W / data.length * 0.6;
+  const gap = W / data.length;
+  const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+  const barClr = '#4f8ef7';
+  const textClr = isDark ? '#8896b0' : '#555';
+  ctx.clearRect(0, 0, W, H);
+  data.forEach((d, i) => {
+    const x = gap * i + gap * 0.2;
+    const bh = (d.hours / maxH) * (H - 28);
+    const y = H - bh - 18;
+    ctx.fillStyle = barClr;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, bh, 4);
+    ctx.fill();
+    ctx.fillStyle = textClr;
+    ctx.font = '11px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.week, x + barW / 2, H - 4);
+    if (d.hours > 0) ctx.fillText(d.hours + 'h', x + barW / 2, y - 4);
+  });
+}) ();
+  {% endif %}
+</script>
+{% endblock %}

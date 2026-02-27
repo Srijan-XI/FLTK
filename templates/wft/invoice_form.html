@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}New Invoice{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.invoices') }}">← Back to Invoices</a>
+<h1 class="page-title">New Invoice</h1>
+
+<div class="card">
+  <form method="POST" id="invoice-form">
+
+    <div class="form-row">
+      <label>Client Name *
+        <input type="text" name="client_name" list="client-names" required placeholder="Client / Company name" />
+        <datalist id="client-names">
+          {% for c in clients %}
+          <option value="{{ c.name }}" data-rate="{{ c.get('default_rate', 0) }}">
+            {% endfor %}
+        </datalist>
+      </label>
+      <label>Due Date *
+        <input type="date" name="due_date" required />
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Currency
+        <select name="currency" id="currency-select">
+          {% for code, sym in currencies.items() %}
+          <option value="{{ code }}" {% if code==cfg.currency %}selected{% endif %}>
+            {{ sym }} {{ code }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Tax Rate (%)
+        <input type="number" name="tax_rate" min="0" max="100" step="0.1" placeholder="0" value="0" id="tax-rate" />
+        <small>Applied to subtotal</small>
+      </label>
+    </div>
+
+    <h3 style="margin:.75rem 0 .5rem">Line Items</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="items-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Hours</th>
+            <th>Rate (<span id="cur-sym">{{ cfg.currency_symbol }}</span>/hr)</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          <tr>
+            <td><input type="text" name="description" placeholder="Service description" required /></td>
+            <td><input type="number" name="hours" min="0" step="0.5" placeholder="0" class="hours-inp" /></td>
+            <td><input type="number" name="rate" min="0" step="0.01" placeholder="{{ cfg.default_rate }}"
+                class="rate-inp" /></td>
+            <td class="amount-cell">—</td>
+            <td><button type="button" class="btn btn-danger btn-sm remove-row">✕</button></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="3" style="text-align:right; color:var(--muted)">Subtotal</td>
+            <td id="subtotal-cell">—</td>
+            <td></td>
+          </tr>
+          <tr id="tax-row" style="display:none">
+            <td colspan="3" style="text-align:right; color:var(--muted)">Tax (<span id="tax-pct">0</span>%)</td>
+            <td id="tax-cell">—</td>
+            <td></td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="3" style="text-align:right"><strong>Total</strong></td>
+            <td id="total-cell"><strong>—</strong></td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <button type="button" class="btn btn-secondary" id="add-row" style="margin-top:.5rem">+ Add Line</button>
+
+    <label style="margin-top:1.2rem">Notes
+      <textarea name="notes" rows="3" placeholder="Payment instructions, thank-you note, etc."></textarea>
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">Create Invoice</button>
+  </form>
+</div>
+
+<script>
+  const CURRENCY_SYMBOLS = {{ currencies | tojson }};
+
+  function getCurSym() {
+    const sel = document.getElementById('currency-select');
+    return CURRENCY_SYMBOLS[sel.value] || '$';
+  }
+
+  function updateAmount(row) {
+    const h = parseFloat(row.querySelector('.hours-inp').value) || 0;
+    const r = parseFloat(row.querySelector('.rate-inp').value) || 0;
+    const amt = h * r;
+    row.querySelector('.amount-cell').textContent = amt.toFixed(2);
+    updateTotals();
+  }
+
+  function updateTotals() {
+    const sym = getCurSym();
+    let sub = 0;
+    document.querySelectorAll('#items-body tr').forEach(row => {
+      sub += parseFloat(row.querySelector('.amount-cell').textContent) || 0;
+    });
+    const tax = parseFloat(document.getElementById('tax-rate').value) || 0;
+    const taxAmt = sub * tax / 100;
+    document.getElementById('subtotal-cell').textContent = sym + sub.toFixed(2);
+    document.getElementById('tax-pct').textContent = tax;
+    document.getElementById('tax-cell').textContent = sym + taxAmt.toFixed(2);
+    document.getElementById('tax-row').style.display = tax > 0 ? '' : 'none';
+    document.getElementById('total-cell').innerHTML = '<strong>' + sym + (sub + taxAmt).toFixed(2) + '</strong>';
+    document.getElementById('cur-sym').textContent = sym;
+  }
+
+  document.getElementById('items-body').addEventListener('input', e => {
+    const row = e.target.closest('tr');
+    if (row) updateAmount(row);
+  });
+  document.getElementById('tax-rate').addEventListener('input', updateTotals);
+  document.getElementById('currency-select').addEventListener('change', updateTotals);
+
+  document.getElementById('add-row').addEventListener('click', () => {
+    const body = document.getElementById('items-body');
+    const tpl = body.querySelector('tr').cloneNode(true);
+    tpl.querySelectorAll('input').forEach(i => i.value = '');
+    tpl.querySelector('.amount-cell').textContent = '—';
+    tpl.querySelector('input[name="description"]').required = true;
+    body.appendChild(tpl);
+  });
+
+  document.getElementById('items-body').addEventListener('click', e => {
+    if (e.target.classList.contains('remove-row')) {
+      const rows = document.getElementById('items-body').querySelectorAll('tr');
+      if (rows.length > 1) { e.target.closest('tr').remove(); updateTotals(); }
+    }
+  });
+
+  // Auto-fill rate when a known client is selected
+  document.querySelector('[name="client_name"]').addEventListener('change', function () {
+    const opt = document.querySelector(`#client-names option[value="${this.value}"]`);
+    if (opt) {
+      const rate = opt.dataset.rate;
+      if (rate && rate > 0) {
+        document.querySelectorAll('.rate-inp').forEach(inp => { if (!inp.value) inp.value = rate; });
+        updateTotals();
+      }
+    }
+  });
+</script>
+{% endblock %}

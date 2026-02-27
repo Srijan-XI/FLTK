@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Proposal Templates{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📄 Proposal Templates</h1>
+<p class="subtitle" style="margin-bottom:1.5rem">Pick a template, fill in the sections, and copy your proposal.</p>
+
+<div class="card-grid">
+  {% for key, tmpl in templates.items() %}
+  <a class="card template-card" href="{{ url_for('wft.template_detail', key=key) }}" style="text-decoration:none">
+    <div class="card-icon">
+      {% if key == 'web_design' %}🌐
+      {% elif key == 'content_writing' %}✍️
+      {% elif key == 'software_dev' %}💻
+      {% elif key == 'consulting' %}🎯
+      {% elif key == 'graphic_design' %}🎨
+      {% elif key == 'video_editing' %}🎬
+      {% else %}📄{% endif %}
+    </div>
+    <h2>{{ tmpl.title }}</h2>
+    <p class="muted-text">{{ tmpl.sections | length }} sections</p>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

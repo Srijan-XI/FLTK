@@ -1,0 +1,80 @@
+FLTK — Freelancer Toolkit
+Community Edition | Open Source Non-Commercial License
+Copyright (c) 2026 srijan-xi
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PERMISSIONS
+
+This is the Community Edition of FLTK. It is made freely available to the
+community to use, learn from, and improve together.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to:
+
+  • Use the Software for personal, educational, or non-commercial purposes.
+  • Copy, modify, merge, adapt, and build upon the Software freely.
+  • Distribute modified or unmodified copies of the Software, provided the
+    original copyright notice and this license are included in all copies or
+    substantial portions of the Software.
+
+We encourage you to bring your own new ideas, improvements, and modifications
+to this project. Innovation and experimentation are welcome.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RESTRICTIONS
+
+NON-COMMERCIAL USE ONLY.
+This Software may NOT be used, in whole or in part, for any commercial purpose.
+Commercial purposes include, but are not limited to:
+
+  • Selling the Software or charging fees for access to it.
+  • Using the Software as part of a paid product or service.
+  • Incorporating the Software into a revenue-generating platform.
+
+Any commercial use requires explicit written permission from the original author.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+DATA & PRIVACY DISCLAIMER
+
+This is a completely offline, self-hosted tool. All data you enter into the
+Software is stored locally on your own machine in plain JSON files.
+
+THE AUTHORS AND CONTRIBUTORS OF THIS SOFTWARE PROVIDE NO GUARANTEE, WARRANTY,
+OR ASSURANCE REGARDING:
+
+  • The security or protection of any third-party data stored or processed
+    through this Software.
+  • Protection against unauthorized access, data loss, or data corruption.
+  • Compliance with any data protection regulations (including but not limited
+    to GDPR, CCPA, or similar laws).
+
+It is the sole responsibility of the user to ensure that sensitive data is
+handled appropriately, backed up securely, and used in accordance with
+applicable laws and regulations.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SUMMARY (not a substitute for the full license above)
+
+  ✔  Community Edition — free for everyone
+  ✔  Free to use personally or educationally
+  ✔  Free to modify and experiment with
+  ✔  Free to share with attribution
+  ✘  Commercial use is NOT permitted without permission
+  ⚠  No guarantees on third-party data protection
+  ⚠  Completely offline — you are responsible for your own data security

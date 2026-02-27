@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Tax Estimator{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🧾 Tax Estimator</h1>
+
+<div class="two-col">
+  <!-- Input form -->
+  <div class="card">
+    <h2>Estimate Your Tax</h2>
+    <form method="POST">
+      <label>Total Income
+        <input type="number" name="total_income" min="0" step="0.01"
+          value="{{ result.total_income if result else summary.total_paid }}"
+          placeholder="{{ summary.total_paid }}" />
+        <small>Auto-filled from your total earned. You can edit this.</small>
+      </label>
+      <label>Business Expenses (deductible)
+        <input type="number" name="total_expenses" min="0" step="0.01"
+          value="{{ result.total_expenses if result else summary.total_expenses }}"
+          placeholder="{{ summary.total_expenses }}" />
+        <small>Auto-filled from your expense tracker. Expenses reduce taxable income.</small>
+      </label>
+      <label>Tax Rate (%)
+        <input type="number" name="tax_rate" min="0" max="100" step="0.1"
+          value="{{ result.tax_rate if result else 18 }}"
+          placeholder="18" />
+        <small>Enter your applicable tax rate (e.g. 18% GST, 30% income tax, etc.)</small>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Calculate →</button>
+    </form>
+  </div>
+
+  <!-- Result -->
+  <div class="card">
+    {% if result %}
+    <h2>Tax Breakdown</h2>
+    <div class="stat-grid" style="grid-template-columns:1fr">
+      <div class="stat">
+        <span class="stat-val">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.total_income) }}</span>
+        <span class="stat-lbl">Gross Income</span>
+      </div>
+    </div>
+    <div class="advice-box">
+      <strong>Calculation Details</strong>
+      <table class="data-table" style="margin-top:.5rem">
+        <tbody>
+          <tr>
+            <td>Gross Income</td>
+            <td style="text-align:right">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.total_income) }}</td>
+          </tr>
+          <tr>
+            <td>Deductible Expenses</td>
+            <td style="text-align:right; color:var(--success)">– {{ cfg.currency_symbol }}{{ "%.2f"|format(result.total_expenses) }}</td>
+          </tr>
+          <tr style="font-weight:700">
+            <td>Taxable Income</td>
+            <td style="text-align:right">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.taxable_income) }}</td>
+          </tr>
+          <tr>
+            <td>Tax Rate</td>
+            <td style="text-align:right">{{ result.tax_rate }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="stat-grid" style="margin-top:1rem">
+      <div class="stat">
+        <span class="stat-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.annual_tax) }}</span>
+        <span class="stat-lbl">Annual Tax Owed</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.quarterly_tax) }}</span>
+        <span class="stat-lbl">Per Quarter</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val primary">{{ cfg.currency_symbol }}{{ "%.2f"|format(result.monthly_set_aside) }}</span>
+        <span class="stat-lbl">Set Aside / Month</span>
+      </div>
+    </div>
+
+    <div class="advice-box" style="margin-top:1rem; border-left:3px solid var(--primary)">
+      <strong>💡 Tip</strong>
+      <p style="color:var(--muted); font-size:.88rem; margin-top:.35rem">
+        Set aside <strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(result.monthly_set_aside) }}</strong> every month
+        into a separate savings account so tax time is never stressful.
+      </p>
+    </div>
+
+    {% else %}
+    <div class="empty-state" style="min-height:280px">
+      <div class="empty-icon">🧮</div>
+      <p>Fill in the form and click Calculate to see your tax breakdown.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

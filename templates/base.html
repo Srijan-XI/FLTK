@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}FLTK{% endblock %} | Freelancer Toolkit</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+  <header class="navbar">
+    <a class="brand" href="{{ url_for('home') }}">⚡ FLTK</a>
+
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav id="main-nav">
+      <a href="{{ url_for('drp.index') }}">Deadline Predictor</a>
+      <a href="{{ url_for('drp.history') }}">DRP History</a>
+      <div class="nav-group" id="wft-nav-group">
+        <span class="nav-label" id="wft-label">Workflow ▾</span>
+        <div class="dropdown" id="wft-dropdown">
+          <a href="{{ url_for('wft.templates') }}">📄 Proposal Templates</a>
+          <a href="{{ url_for('wft.clients') }}">👥 Clients</a>
+          <a href="{{ url_for('wft.invoices') }}">🧾 Invoices</a>
+          <a href="{{ url_for('wft.hours') }}">⏱ Work Hours</a>
+          <a href="{{ url_for('wft.expenses') }}">💸 Expenses</a>
+          <a href="{{ url_for('wft.tax_estimator') }}">🧮 Tax Estimator</a>
+          <a href="{{ url_for('wft.reports') }}">📊 Profitability</a>
+          <a href="{{ url_for('wft.search') }}">🔍 Search</a>
+          <a href="{{ url_for('wft.backup') }}">🗄️ Backup</a>
+          <a href="{{ url_for('wft.settings') }}">⚙️ Settings</a>
+        </div>
+      </div>
+    </nav>
+
+  <!-- Also add search bar to header -->
+  <form id="header-search" method="GET" action="{{ url_for('wft.search') }}"
+    style="display:flex; align-items:center; gap:.4rem; margin-left:auto; margin-right:.5rem">
+    <input type="text" name="q" placeholder="Search…" class="search-input"
+      style="width:140px" title="Global Search" />
+    <button type="submit" class="btn btn-secondary btn-sm" style="padding:.3rem .6rem">🔍</button>
+  </form>
+
+  <button class="theme-toggle" id="theme-toggle" title="Toggle theme">🌙</button>
+  </header>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <main class="container">
+    <!-- Pass flash messages to JS toasts -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <script>
+        window.__flashes = {{ messages | tojson }};
+      </script>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <p>FLTK — Freelancer Toolkit</p>
+    <p style="margin-top:.25rem; font-size:.75rem;">For the community, by the community.</p>
+  </footer>
+
+  <!-- Watermark -->
+  <div class="watermark">created by srijan-xi</div>
+
+  <script>
+    // ── Theme toggle ────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('theme-toggle');
+    const saved = localStorage.getItem('fltk-theme') || 'dark';
+    html.setAttribute('data-theme', saved);
+    themeBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('fltk-theme', next);
+      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+
+    // ── Hamburger mobile nav ────────────────────────────────────────────────
+    const ham = document.getElementById('hamburger');
+    const nav = document.getElementById('main-nav');
+    ham.addEventListener('click', () => {
+      nav.classList.toggle('open');
+      ham.classList.toggle('open');
+    });
+
+    // ── Workflow dropdown (click on mobile, hover on desktop) ───────────────
+    const wftGroup = document.getElementById('wft-nav-group');
+    const wftLabel = document.getElementById('wft-label');
+    const wftDrop  = document.getElementById('wft-dropdown');
+    wftLabel.addEventListener('click', () => {
+      wftDrop.classList.toggle('open');
+    });
+    document.addEventListener('click', (e) => {
+      if (!wftGroup.contains(e.target)) wftDrop.classList.remove('open');
+    });
+
+    // ── Toast notifications ─────────────────────────────────────────────────
+    function showToast(category, message) {
+      const tc = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${category}`;
+      toast.innerHTML = `<span>${message}</span><button onclick="this.parentElement.remove()">✕</button>`;
+      tc.appendChild(toast);
+      setTimeout(() => toast.classList.add('show'), 10);
+      setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 350); }, 4500);
+    }
+
+    if (window.__flashes) {
+      window.__flashes.forEach(([cat, msg]) => showToast(cat, msg));
+    }
+  </script>
+</body>
+</html>

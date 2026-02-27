@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Expense Tracker{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">💸 Expense Tracker</h1>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.export_expenses') }}">⬇ Export CSV</a>
+</div>
+
+<!-- Summary bar -->
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem">
+  <div class="isb-item">
+    <span class="isb-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.total) }}</span>
+    <span class="isb-lbl">Total Expenses</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.month_total) }}</span>
+    <span class="isb-lbl">This Month</span>
+  </div>
+  {% if summary.by_category %}
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    {% set top_cat = summary.by_category | dictsort(by='value', reverse=True) | first %}
+    <span class="isb-val muted">{{ top_cat[0] }}</span>
+    <span class="isb-lbl">Top Category</span>
+  </div>
+  {% endif %}
+</div>
+
+<div class="two-col">
+  <!-- Add form -->
+  <div class="card">
+    <h2>Log Expense</h2>
+    <form method="POST">
+      <label>Title *
+        <input type="text" name="title" required placeholder="e.g. Figma Annual Plan" />
+      </label>
+      <div class="form-row">
+        <label>Amount *
+          <input type="number" name="amount" min="0.01" step="0.01" required placeholder="0.00" />
+        </label>
+        <label>Date
+          <input type="date" name="expense_date" value="{{ '' }}" />
+        </label>
+      </div>
+      <label>Category
+        <select name="category">
+          {% for cat in categories %}
+          <option value="{{ cat }}">{{ cat }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="2" placeholder="Optional details…"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Add Expense</button>
+    </form>
+  </div>
+
+  <!-- Category breakdown -->
+  <div class="card">
+    <h2>By Category</h2>
+    {% if summary.by_category %}
+    {% set max_val = summary.by_category.values() | max %}
+    {% for cat, amt in (summary.by_category | dictsort(by='value', reverse=True)) %}
+    <div class="bar-row">
+      <span class="bar-label">{{ cat }}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:{{ (amt / max_val * 100) | round }}%"></div>
+      </div>
+      <span class="bar-val">{{ cfg.currency_symbol }}{{ "%.0f"|format(amt) }}</span>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📊</div>
+      <p>No expenses yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Expense list -->
+<div class="card" style="margin-top:1.5rem">
+  <div class="card-header-row">
+    <h2>All Expenses ({{ expenses | length }})</h2>
+    {% if expenses %}
+    <input type="text" class="search-input" placeholder="Search…"
+      oninput="filterTable('exp-table', this.value)" />
+    {% endif %}
+  </div>
+  {% if expenses %}
+  <div style="overflow-x:auto">
+    <table class="data-table" id="exp-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Amount</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td>{{ e.date }}</td>
+          <td><strong>{{ e.title }}</strong></td>
+          <td><span class="badge badge-unpaid" style="background:rgba(148,163,184,.15);color:var(--muted)">{{ e.get('category','Other') }}</span></td>
+          <td><strong class="danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(e.amount) }}</strong></td>
+          <td class="muted-text">{{ e.get('notes','') }}</td>
+          <td class="action-cell">
+            <form method="POST" action="{{ url_for('wft.delete_expense', expense_id=e.id) }}"
+              onsubmit="return confirm('Delete this expense?')" style="display:inline">
+              <button class="btn btn-danger btn-sm">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">💸</div>
+    <p>No expenses logged yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+function filterTable(tableId, query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+// Set today as default date
+document.addEventListener('DOMContentLoaded', () => {
+  const d = document.querySelector('input[name="expense_date"]');
+  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+});
+</script>
+{% endblock %}

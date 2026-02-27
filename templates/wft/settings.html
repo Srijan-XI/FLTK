@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<h1 class="page-title">⚙️ Settings</h1>
+
+<div class="card" style="max-width:600px">
+    <form method="POST">
+        <h3 style="margin-bottom:1rem; color:var(--primary)">Your Profile</h3>
+        <div class="form-row">
+            <label>Your Name
+                <input type="text" name="name" value="{{ cfg.name }}" placeholder="Your Name" />
+            </label>
+            <label>Business / Freelancer Name
+                <input type="text" name="business" value="{{ cfg.business }}" placeholder="Freelancer" />
+            </label>
+        </div>
+
+        <h3 style="margin:1rem 0; color:var(--primary)">Defaults</h3>
+        <div class="form-row">
+            <label>Default Currency
+                <select name="currency">
+                    {% for code, sym in currencies.items() %}
+                    <option value="{{ code }}" {% if code==cfg.currency %}selected{% endif %}>
+                        {{ sym }} — {{ code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Default Hourly Rate
+                <input type="number" name="default_rate" min="0" step="0.01" value="{{ cfg.default_rate }}" />
+            </label>
+        </div>
+        <label>Working Hours Per Day
+            <input type="number" name="working_hours_per_day" min="1" max="24" step="0.5"
+                value="{{ cfg.working_hours_per_day }}" />
+            <small>Used by the Deadline Risk Predictor</small>
+        </label>
+
+        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1.2rem">Save Settings</button>
+    </form>
+</div>
+{% endblock %}

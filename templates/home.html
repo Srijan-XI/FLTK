@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+{% set summary = earnings_summary %}
+
+<section class="hero">
+  <h1>Freelancer Toolkit</h1>
+  <p class="subtitle">Your offline-first workspace for managing freelance work.</p>
+
+  <!-- Earnings Dashboard -->
+  {% if summary %}
+  <div class="dashboard-bar">
+    <div class="dash-stat">
+      <span class="dash-val success">{{ summary.currency_symbol }}{{ "%.2f"|format(summary.total_paid) }}</span>
+      <span class="dash-lbl">Total Earned</span>
+    </div>
+    <div class="dash-divider"></div>
+    <div class="dash-stat">
+      <span class="dash-val {% if summary.total_outstanding > 0 %}warning{% else %}muted{% endif %}">
+        {{ summary.currency_symbol }}{{ "%.2f"|format(summary.total_outstanding) }}
+      </span>
+      <span class="dash-lbl">Outstanding</span>
+    </div>
+    <div class="dash-divider"></div>
+    <div class="dash-stat">
+      <span class="dash-val danger">{{ summary.currency_symbol }}{{ "%.2f"|format(summary.total_expenses) }}</span>
+      <span class="dash-lbl">Expenses</span>
+    </div>
+    <div class="dash-divider"></div>
+    <div class="dash-stat">
+      <span class="dash-val {% if summary.net_profit >= 0 %}success{% else %}danger{% endif %}">
+        {{ summary.currency_symbol }}{{ "%.2f"|format(summary.net_profit) }}
+      </span>
+      <span class="dash-lbl">Net Profit</span>
+    </div>
+    <div class="dash-divider"></div>
+    <div class="dash-stat">
+      <span class="dash-val primary">{{ summary.hours_this_week }}h</span>
+      <span class="dash-lbl">Hours This Week</span>
+    </div>
+    {% if summary.overdue_count > 0 %}
+    <div class="dash-divider"></div>
+    <div class="dash-stat">
+      <span class="dash-val danger">{{ summary.overdue_count }}</span>
+      <span class="dash-lbl">⚠ Overdue Invoice{{ 's' if summary.overdue_count != 1 }}</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Charts row -->
+  {% if summary and (summary.income_by_month or summary.weekly_hours) %}
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.25rem; margin-bottom:2rem">
+
+    {% if summary.income_by_month %}
+    <div class="card" style="text-align:left">
+      <h2 style="font-size:1rem; margin-bottom:.75rem">📈 Income by Month</h2>
+      <canvas id="incomeChart" height="180"></canvas>
+    </div>
+    {% endif %}
+
+    {% if summary.weekly_hours %}
+    <div class="card" style="text-align:left">
+      <h2 style="font-size:1rem; margin-bottom:.75rem">⏱ Hours by Week</h2>
+      <canvas id="hoursChart" height="180"></canvas>
+    </div>
+    {% endif %}
+
+    {% if summary.income_by_client %}
+    <div class="card" style="text-align:left">
+      <h2 style="font-size:1rem; margin-bottom:.75rem">👥 Income by Client</h2>
+      <canvas id="clientChart" height="180"></canvas>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <div class="card-grid">
+
+    <div class="card card-drp">
+      <div class="card-icon">⏰</div>
+      <h2>Deadline Risk Predictor</h2>
+      <p>Enter your task details, historical speed, and workload — get instant
+        probability of missing a deadline plus a personalised schedule.</p>
+      <div class="btn-group">
+        <a class="btn btn-primary" href="{{ url_for('drp.index') }}">Predict Risk →</a>
+        <a class="btn btn-secondary" href="{{ url_for('drp.history') }}">History</a>
+      </div>
+    </div>
+
+    <div class="card card-wft">
+      <div class="card-icon">🗂️</div>
+      <h2>Workflow Toolkit</h2>
+      <p>Manage clients, generate professional invoices, track your work hours,
+        and grab ready-made proposal templates.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary" href="{{ url_for('wft.templates') }}">📄 Templates</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.clients') }}">👥 Clients</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.invoices') }}">🧾 Invoices</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.hours') }}">⏱ Hours</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">💸</div>
+      <h2>Expense Tracker</h2>
+      <p>Log business expenses by category. Track net profit after expenses and prepare for tax season.</p>
+      <div class="btn-group">
+        <a class="btn btn-primary" href="{{ url_for('wft.expenses') }}">Track Expenses →</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.tax_estimator') }}">🧾 Tax Estimate</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">🤝</div>
+      <h2>CRM</h2>
+      <p>Track every client interaction — calls, emails, meetings, and follow-ups.
+        Never let a lead go cold.</p>
+      <div class="btn-group">
+        <a class="btn btn-primary" href="{{ url_for('wft.clients') }}">Open CRM →</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.reports') }}">📊 Profitability</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">🔍</div>
+      <h2>Search &amp; Export</h2>
+      <p>Search across all your data instantly. Export clients, invoices, hours, and expenses to CSV.</p>
+      <div class="btn-group">
+        <a class="btn btn-primary" href="{{ url_for('wft.search') }}">Search →</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.backup') }}">🗄️ Backup</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+{% if summary and (summary.income_by_month or summary.weekly_hours or summary.income_by_client) %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8896b0';
+Chart.defaults.borderColor = '#2a3347';
+
+{% if summary.income_by_month %}
+new Chart(document.getElementById('incomeChart'), {
+  type: 'bar',
+  data: {
+    labels: {{ summary.income_by_month.keys() | list | tojson }},
+    datasets: [{
+      label: 'Income',
+      data: {{ summary.income_by_month.values() | list | tojson }},
+      backgroundColor: 'rgba(79,142,247,.7)',
+      borderRadius: 5,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#2a3347' } },
+      y: { grid: { color: '#2a3347' } },
+    },
+    responsive: true,
+  }
+});
+{% endif %}
+
+{% if summary.weekly_hours %}
+new Chart(document.getElementById('hoursChart'), {
+  type: 'line',
+  data: {
+    labels: {{ summary.weekly_hours | map(attribute='week') | list | tojson }},
+    datasets: [{
+      label: 'Hours',
+      data: {{ summary.weekly_hours | map(attribute='hours') | list | tojson }},
+      borderColor: '#30d988',
+      backgroundColor: 'rgba(48,217,136,.15)',
+      tension: 0.4,
+      fill: true,
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: '#2a3347' } },
+      y: { grid: { color: '#2a3347' }, beginAtZero: true },
+    },
+    responsive: true,
+  }
+});
+{% endif %}
+
+{% if summary.income_by_client %}
+new Chart(document.getElementById('clientChart'), {
+  type: 'doughnut',
+  data: {
+    labels: {{ summary.income_by_client.keys() | list | tojson }},
+    datasets: [{
+      data: {{ summary.income_by_client.values() | list | tojson }},
+      backgroundColor: [
+        'rgba(79,142,247,.8)', 'rgba(48,217,136,.8)', 'rgba(245,200,66,.8)',
+        'rgba(167,139,250,.8)', 'rgba(240,128,48,.8)', 'rgba(242,92,92,.8)',
+        'rgba(56,189,248,.8)', 'rgba(134,239,172,.8)',
+      ],
+      borderWidth: 2,
+      borderColor: '#1e2535',
+    }]
+  },
+  options: {
+    plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 10 } } },
+    responsive: true,
+  }
+});
+{% endif %}
+</script>
+{% endif %}
+
+{% endblock %}

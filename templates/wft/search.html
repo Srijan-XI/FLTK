@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Search{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🔍 Global Search</h1>
+
+<form method="GET" action="{{ url_for('wft.search') }}" style="margin-bottom:1.5rem">
+  <div style="display:flex; gap:.75rem; align-items:center">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search clients, invoices, hours, expenses…"
+      style="flex:1; background:var(--bg2); border:1px solid var(--border); border-radius:7px;
+             color:var(--text); padding:.65rem 1rem; font-size:1rem; font-family:inherit"
+      autofocus />
+    <button type="submit" class="btn btn-primary">Search</button>
+  </div>
+</form>
+
+{% if query %}
+<p style="color:var(--muted); margin-bottom:1.5rem">
+  {{ total }} result{{ 's' if total != 1 }} for <strong>"{{ query }}"</strong>
+</p>
+
+<!-- Clients -->
+{% if results.clients %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>👥 Clients ({{ results.clients | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Company</th><th>Email</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for c in results.clients %}
+      <tr>
+        <td><strong>{{ c.name }}</strong></td>
+        <td>{{ c.get('company','') }}</td>
+        <td>{{ c.email }}</td>
+        <td>
+          <span class="badge {% if c.get('status','active') == 'active' %}badge-paid{% elif c.get('status') == 'lead' %}badge-unpaid{% else %}badge-overdue{% endif %}">
+            {{ c.get('status', 'active') | capitalize }}
+          </span>
+        </td>
+        <td class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.crm_client', client_id=c.id) }}">CRM</a>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client', client_id=c.id) }}">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Invoices -->
+{% if results.invoices %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>🧾 Invoices ({{ results.invoices | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Invoice #</th><th>Client</th><th>Total</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for i in results.invoices %}
+      <tr>
+        <td>{{ i.invoice_number }}</td>
+        <td>{{ i.client_name }}</td>
+        <td>{{ i.currency_symbol }}{{ "%.2f"|format(i.total) }}</td>
+        <td><span class="badge badge-{{ i.status }}">{{ i.status | capitalize }}</span></td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=i.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Work Hours -->
+{% if results.hours %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>⏱ Work Hours ({{ results.hours | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Task</th><th>Client</th><th>Hours</th><th>Tag</th></tr></thead>
+    <tbody>
+      {% for e in results.hours[:20] %}
+      <tr>
+        <td>{{ e.date }}</td>
+        <td>{{ e.task }}</td>
+        <td>{{ e.client }}</td>
+        <td>{{ e.hours }}h</td>
+        <td>{% if e.get('tag') %}<span class="tag-badge tag-{{ e.tag }}">{{ e.tag }}</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Expenses -->
+{% if results.expenses %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>💸 Expenses ({{ results.expenses | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Title</th><th>Category</th><th>Amount</th></tr></thead>
+    <tbody>
+      {% for e in results.expenses %}
+      <tr>
+        <td>{{ e.date }}</td>
+        <td>{{ e.title }}</td>
+        <td>{{ e.get('category','') }}</td>
+        <td class="danger">{{ "%.2f"|format(e.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if total == 0 %}
+<div class="empty-state">
+  <div class="empty-icon">🔍</div>
+  <p>No results found for "{{ query }}".</p>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

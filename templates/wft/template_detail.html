@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ tmpl.title }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.templates') }}">← Back to Templates</a>
+<div class="page-header">
+  <h1 class="page-title">{{ tmpl.title }}</h1>
+  <button class="btn btn-primary" id="copy-btn" onclick="copyProposal()">📋 Copy All</button>
+</div>
+
+<p class="muted-text" style="margin-bottom:1.5rem">
+  Fill in each section below, then click <strong>Copy All</strong> to copy your full proposal to the clipboard.
+</p>
+
+<div class="template-sections" id="proposal-body">
+  {% for title, guidance in tmpl.sections %}
+  <div class="card template-section">
+    <h3>{{ loop.index }}. {{ title }}</h3>
+    <p class="guidance">{{ guidance }}</p>
+    <textarea rows="5" placeholder="{{ guidance }}" data-section="{{ title }}"></textarea>
+  </div>
+  {% endfor %}
+</div>
+
+<p class="note">💡 These fields are not saved — copy your proposal before leaving the page.</p>
+
+<script>
+  function copyProposal() {
+    let text = '{{ tmpl.title }}\n' + '='.repeat(40) + '\n\n';
+    document.querySelectorAll('#proposal-body textarea').forEach(ta => {
+      const label = ta.dataset.section;
+      const val = ta.value.trim() || '[Not filled]';
+      text += label + '\n' + '-'.repeat(label.length) + '\n' + val + '\n\n';
+    });
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Copied!';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+    }).catch(() => {
+      alert('Copy failed — please select and copy manually.');
+    });
+  }
+</script>
+{% endblock %}

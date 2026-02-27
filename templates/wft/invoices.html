@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Invoices{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🧾 Invoices</h1>
+  <a class="btn btn-primary" href="{{ url_for('wft.new_invoice') }}">+ New Invoice</a>
+</div>
+
+<!-- Summary bar -->
+{% if summary %}
+<div class="invoice-summary-bar">
+  <div class="isb-item">
+    <span class="isb-val success">${{ "%.2f"|format(summary.total_paid) }}</span>
+    <span class="isb-lbl">Paid</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val {% if summary.total_outstanding > 0 %}warning{% else %}muted{% endif %}">
+      ${{ "%.2f"|format(summary.total_outstanding) }}
+    </span>
+    <span class="isb-lbl">Outstanding</span>
+  </div>
+  {% if summary.overdue_count > 0 %}
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val danger">{{ summary.overdue_count }}</span>
+    <span class="isb-lbl">Overdue</span>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if invoices %}
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <table class="data-table sortable" id="inv-table">
+    <thead>
+      <tr>
+        <th data-col="0"># ↕</th>
+        <th data-col="1">Client ↕</th>
+        <th data-col="2">Issued ↕</th>
+        <th data-col="3">Due ↕</th>
+        <th data-col="4">Total ↕</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td>{{ inv.invoice_number }}</td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.issue_date }}</td>
+        <td>
+          {{ inv.due_date }}
+          {% if inv.status != 'paid' and inv.due_date < today %} <span class="badge badge-overdue">OVERDUE</span>
+            {% endif %}
+        </td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.total) }}</td>
+        <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
+        <td>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">View</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">🧾</div>
+    <p>No invoices yet.</p>
+    <a class="btn btn-primary" href="{{ url_for('wft.new_invoice') }}">Create your first one →</a>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  // Sortable table
+  document.querySelectorAll('.sortable th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = +th.dataset.col;
+      const tbody = th.closest('table').querySelector('tbody');
+      const rows = [...tbody.querySelectorAll('tr')];
+      const asc = th.dataset.order !== 'asc';
+      th.dataset.order = asc ? 'asc' : 'desc';
+      rows.sort((a, b) => {
+        const va = a.cells[col].textContent.trim();
+        const vb = b.cells[col].textContent.trim();
+        return asc ? va.localeCompare(vb, undefined, { numeric: true })
+          : vb.localeCompare(va, undefined, { numeric: true });
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+</script>
+{% endblock %}

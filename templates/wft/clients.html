@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">👥 Clients &amp; CRM</h1>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.export_clients') }}">⬇ Export CSV</a>
+</div>
+
+<div class="two-col">
+  <!-- Add client form -->
+  <div class="card">
+    <h2>Add New Client</h2>
+    <form method="POST" action="{{ url_for('wft.add_client') }}">
+      <div class="form-row">
+        <label>Name *
+          <input type="text" name="name" required placeholder="Full name" />
+        </label>
+        <label>Company
+          <input type="text" name="company" placeholder="Company or business" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Email *
+          <input type="email" name="email" required placeholder="client@example.com" />
+        </label>
+        <label>Phone
+          <input type="text" name="phone" placeholder="+91 98765 43210" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Default Hourly Rate
+          <input type="number" name="default_rate" min="0" step="0.01" placeholder="50.00" />
+        </label>
+        <label>Preferred Currency
+          <select name="currency">
+            <option value="">— Use global default —</option>
+            {% for code, sym in currencies.items() %}
+            <option value="{{ code }}">{{ sym }} {{ code }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Status
+          <select name="status">
+            <option value="active">Active</option>
+            <option value="lead">Lead</option>
+            <option value="inactive">Inactive</option>
+            <option value="vip">VIP</option>
+          </select>
+        </label>
+        <label>Website
+          <input type="url" name="website" placeholder="https://client.com" />
+        </label>
+      </div>
+      <label>Notes
+        <textarea name="notes" rows="2" placeholder="Any relevant notes…"></textarea>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Add Client</button>
+    </form>
+  </div>
+
+  <!-- Client list -->
+  <div class="card">
+    <div class="card-header-row">
+      <h2>Clients ({{ clients | length }})</h2>
+      {% if clients %}
+      <input type="text" id="client-search" class="search-input" placeholder="Search…"
+        oninput="filterTable('client-table', this.value)" />
+      {% endif %}
+    </div>
+
+    {% if clients %}
+    <table class="data-table" id="client-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Contact</th>
+          <th>Rate</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td>
+            <strong>{{ c.name }}</strong>
+            {% if c.get('company') %}<br><small class="muted-text">🏢 {{ c.company }}</small>{% endif %}
+          </td>
+          <td>
+            {{ c.email }}
+            {% if c.get('phone') %}<br><small class="muted-text">{{ c.phone }}</small>{% endif %}
+          </td>
+          <td>{% if c.get('default_rate') %}{{ c.get('currency_symbol','$') }}{{ c.default_rate }}/hr{% else %}—{% endif %}</td>
+          <td>
+            {% set st = c.get('status','active') %}
+            <span class="badge"
+              style="{% if st == 'active' %}background:rgba(48,217,136,.2);color:var(--success)
+                     {% elif st == 'lead' %}background:rgba(242,92,92,.2);color:var(--danger)
+                     {% elif st == 'vip' %}background:rgba(167,139,250,.2);color:#a78bfa
+                     {% else %}background:rgba(136,150,176,.2);color:var(--muted){% endif %}">
+              {{ st | capitalize }}
+            </span>
+          </td>
+          <td class="action-cell">
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.crm_client', client_id=c.id) }}" title="CRM">💬</a>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client', client_id=c.id) }}">✏</a>
+            <form method="POST" action="{{ url_for('wft.delete_client', client_id=c.id) }}"
+              onsubmit="return confirm('Remove {{ c.name }}?')" style="display:inline">
+              <button class="btn btn-danger btn-sm">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">👥</div>
+      <p>No clients yet — add one on the left.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  function filterTable(tableId, query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll(`#${tableId} tbody tr`).forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 13px;
+            color: #111;
+            margin: 0;
+            padding: 30px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #4f8ef7;
+            margin: 0;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 16px;
+        }
+
+        .meta p {
+            margin: 2px 0;
+        }
+
+        .bill-to {
+            margin-bottom: 16px;
+        }
+
+        .bill-to .label {
+            font-size: .75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th {
+            background: #f5f7fa;
+            text-align: left;
+            padding: 8px;
+            font-size: .82rem;
+            color: #555;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+
+        tfoot td {
+            border-top: 2px solid #ddd;
+            border-bottom: none;
+        }
+
+        .total-row td {
+            font-weight: bold;
+            font-size: 1.05rem;
+        }
+
+        .notes {
+            margin-top: 20px;
+            font-size: .9rem;
+            color: #555;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: .8rem;
+            font-weight: 700;
+        }
+
+        .status-paid {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-unpaid {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .inv-number {
+            color: #888;
+            font-size: .9rem;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .muted {
+            color: #888;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <div>
+            <h1>INVOICE</h1>
+            <p class="inv-number">{{ inv.invoice_number }}</p>
+        </div>
+        <div class="meta">
+            <p><strong>{{ cfg.name }}</strong></p>
+            <p>{{ cfg.business }}</p>
+            <p style="margin-top:6px">Issued: {{ inv.issue_date }}</p>
+            <p>Due: {{ inv.due_date }}</p>
+            <p><span class="status status-{{ inv.status }}">{{ inv.status | upper }}</span></p>
+        </div>
+    </div>
+
+    <div class="bill-to">
+        <p class="label">Bill To</p>
+        <p><strong>{{ inv.client_name }}</strong></p>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th class="text-right">Hours</th>
+                <th class="text-right">Rate</th>
+                <th class="text-right">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in inv.items %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td class="text-right">{{ item.hours }}</td>
+                <td class="text-right">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(item.rate) }}</td>
+                <td class="text-right">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="3" class="text-right muted">Subtotal</td>
+                <td class="text-right">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.get('subtotal',
+                    inv.total)) }}</td>
+            </tr>
+            {% if inv.get('tax_rate', 0) > 0 %}
+            <tr>
+                <td colspan="3" class="text-right muted">Tax ({{ inv.tax_rate }}%)</td>
+                <td class="text-right">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.get('tax_amount', 0)) }}
+                </td>
+            </tr>
+            {% endif %}
+            <tr class="total-row">
+                <td colspan="3" class="text-right">Total</td>
+                <td class="text-right">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.total) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    {% if inv.notes %}
+    <div class="notes"><strong>Notes:</strong> {{ inv.notes }}</div>
+    {% endif %}
+</body>
+
+</html>

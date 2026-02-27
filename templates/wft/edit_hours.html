@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Edit Hours Entry{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.hours') }}">← Back to Work Hours</a>
+<h1 class="page-title">✏️ Edit Hour Entry</h1>
+
+<div class="card" style="max-width:600px">
+    <form method="POST">
+        <label>Task *
+            <input type="text" name="task" required value="{{ entry.task }}" />
+        </label>
+        <label>Client *
+            <select name="client" required>
+                {% for c in clients %}
+                <option value="{{ c.name }}" {% if c.name==entry.client %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+                <option value="{{ entry.client }}" {% if entry.client not in clients|map(attribute='name' )|list
+                    %}selected{% endif %}>
+                    {{ entry.client }}
+                </option>
+            </select>
+        </label>
+        <label>Hours *
+            <input type="number" name="hours" min="0.25" step="0.25" required value="{{ entry.hours }}" />
+        </label>
+        <label>Tag
+            <select name="tag">
+                <option value="">— None —</option>
+                {% for t in ['design','dev','writing','meeting','research','review','other'] %}
+                <option value="{{ t }}" {% if entry.get('tag')==t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+        </label>
+        <label>Date
+            <input type="date" name="log_date" value="{{ entry.date }}" />
+        </label>
+        <label>Notes
+            <textarea name="notes" rows="2">{{ entry.notes or '' }}</textarea>
+        </label>
+        <div class="btn-group" style="justify-content:flex-start; margin-top:.5rem">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a class="btn btn-secondary" href="{{ url_for('wft.hours') }}">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}DRP History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">📋 Prediction History</h1>
+    {% if entries %}
+    <form method="POST" action="{{ url_for('drp.clear_history') }}" onsubmit="return confirm('Clear all history?')">
+        <button class="btn btn-danger btn-sm">🗑 Clear All</button>
+    </form>
+    {% endif %}
+</div>
+
+{% if entries %}
+<div class="history-list">
+    {% for e in entries %}
+    <div class="card history-card result-{{ e.risk_level | lower }}">
+        <div class="history-row">
+            <div class="history-meta">
+                <span class="risk-badge risk-{{ e.risk_level | lower }}">{{ e.risk_level }}</span>
+                <strong>{{ e.task_name }}</strong>
+                <span class="muted-text">· {{ e.saved_at }}</span>
+            </div>
+            <form method="POST" action="{{ url_for('drp.delete_history', entry_id=e.id) }}">
+                <button class="btn btn-danger btn-sm">✕</button>
+            </form>
+        </div>
+        <div class="stat-grid" style="margin-top:.75rem">
+            <div class="stat">
+                <span class="stat-val">{{ e.miss_probability }}%</span>
+                <span class="stat-lbl">Miss Prob.</span>
+            </div>
+            <div class="stat">
+                <span class="stat-val">{{ e.days_left }}</span>
+                <span class="stat-lbl">Days Left</span>
+            </div>
+            <div class="stat">
+                <span class="stat-val">{{ e.available_hours }}h</span>
+                <span class="stat-lbl">Available</span>
+            </div>
+            <div class="stat">
+                <span class="stat-val">{{ e.adjusted_hours }}h</span>
+                <span class="stat-lbl">Adjusted Need</span>
+            </div>
+        </div>
+        <p class="advice-text">{{ e.schedule_advice }}</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <p>No predictions yet.</p>
+        <a class="btn btn-primary" href="{{ url_for('drp.index') }}">Run your first prediction →</a>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Backup & Restore{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🗄️ Backup &amp; Restore</h1>
+
+<div class="two-col">
+  <!-- Download backup -->
+  <div class="card">
+    <div class="card-icon">⬇️</div>
+    <h2>Download Backup</h2>
+    <p style="color:var(--muted); font-size:.9rem; margin-bottom:1rem">
+      Downloads a <code>.zip</code> file containing all your data:
+      clients, invoices, work hours, expenses, CRM interactions, and settings.
+      Store it in a safe place — it can be used to fully restore your data.
+    </p>
+    <a class="btn btn-primary btn-full" href="{{ url_for('wft.backup_download') }}">
+      ⬇ Download Backup (.zip)
+    </a>
+    <p class="note" style="margin-top:.75rem; font-size:.8rem">
+      Files included: <code>clients.json</code>, <code>invoices.json</code>,
+      <code>workhours.json</code>, <code>expenses.json</code>,
+      <code>crm_interactions.json</code>, <code>settings.json</code>
+    </p>
+  </div>
+
+  <!-- Upload & restore -->
+  <div class="card">
+    <div class="card-icon">⬆️</div>
+    <h2>Restore from Backup</h2>
+    <p style="color:var(--muted); font-size:.9rem; margin-bottom:1rem">
+      Upload a previously downloaded backup <code>.zip</code> file.
+      <strong class="danger">This will overwrite your current data</strong> for any files found in the zip.
+    </p>
+    <form method="POST" action="{{ url_for('wft.backup_restore') }}" enctype="multipart/form-data"
+      onsubmit="return confirm('This will overwrite current data. Are you sure?')">
+      <label>Select Backup File (.zip)
+        <input type="file" name="backup_file" accept=".zip" required />
+      </label>
+      <button type="submit" class="btn btn-danger btn-full" style="margin-top:.5rem">
+        ⬆ Restore Data
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Individual CSV exports -->
+<div class="card" style="margin-top:1.5rem">
+  <h2>Export Individual Data as CSV</h2>
+  <p style="color:var(--muted); font-size:.9rem; margin-bottom:1rem">
+    Export individual data sets for use in Excel, Google Sheets, Tally, or QuickBooks.
+  </p>
+  <div class="btn-group" style="justify-content:flex-start">
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_clients') }}">👥 Export Clients</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_invoices') }}">🧾 Export Invoices</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_hours') }}">⏱ Export Work Hours</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_expenses') }}">💸 Export Expenses</a>
+  </div>
+</div>
+{% endblock %}

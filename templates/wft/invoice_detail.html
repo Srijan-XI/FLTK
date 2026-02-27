@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}{{ inv.invoice_number }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.invoices') }}">← Back to Invoices</a>
+
+<div class="invoice-sheet card">
+  <div class="invoice-header">
+    <div>
+      <h1>INVOICE</h1>
+      <p class="inv-number">{{ inv.invoice_number }}</p>
+    </div>
+    <div class="inv-meta">
+      <p><strong>{{ cfg.name }}</strong></p>
+      <p>{{ cfg.business }}</p>
+      <p style="margin-top:.5rem">Issued: {{ inv.issue_date }}</p>
+      <p>Due: {{ inv.due_date }}</p>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; margin-bottom:1rem; flex-wrap:wrap; gap:.5rem">
+    <div>
+      <p class="muted-text" style="font-size:.8rem; margin-bottom:.2rem">BILL TO</p>
+      <p><strong>{{ inv.client_name }}</strong></p>
+    </div>
+    <div style="text-align:right">
+      <span class="badge badge-{{ inv.status }}" style="font-size:.9rem">{{ inv.status | upper }}</span>
+    </div>
+  </div>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th>Hours</th>
+        <th>Rate</th>
+        <th>Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in inv.items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.hours }}</td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(item.rate) }}</td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(item.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="3" style="text-align:right; color:var(--muted)">Subtotal</td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.get('subtotal', inv.total)) }}</td>
+      </tr>
+      {% if inv.get('tax_rate', 0) > 0 %}
+      <tr>
+        <td colspan="3" style="text-align:right; color:var(--muted)">Tax ({{ inv.tax_rate }}%)</td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.get('tax_amount', 0)) }}</td>
+      </tr>
+      {% endif %}
+      <tr class="total-row">
+        <td colspan="3" style="text-align:right"><strong>Total</strong></td>
+        <td><strong>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.total) }}</strong></td>
+      </tr>
+    </tfoot>
+  </table>
+
+  {% if inv.notes %}
+  <div class="invoice-notes">
+    <strong>Notes:</strong> {{ inv.notes }}
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="btn-group" style="margin-top:1.5rem; justify-content:flex-start">
+    {% if inv.status != 'paid' %}
+    <form method="POST" action="{{ url_for('wft.pay_invoice', inv_id=inv.id) }}">
+      <button class="btn btn-primary">✓ Mark as Paid</button>
+    </form>
+    {% endif %}
+    <a class="btn btn-secondary" href="{{ url_for('wft.invoice_pdf', inv_id=inv.id) }}">⬇ Download PDF</a>
+    <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
+    <form method="POST" action="{{ url_for('wft.delete_invoice', inv_id=inv.id) }}"
+      onsubmit="return confirm('Delete this invoice permanently?')">
+      <button class="btn btn-danger">🗑 Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

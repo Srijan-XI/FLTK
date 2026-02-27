@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}CRM – {{ client.name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.clients') }}">← Back to Clients</a>
+
+<!-- Client header -->
+<div class="card" style="margin-bottom:1.25rem">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem">
+    <div>
+      <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap">
+        <h1 style="font-size:1.7rem; font-weight:700; margin:0">{{ client.name }}</h1>
+        <span class="badge {% if client.get('status','active') == 'active' %}badge-paid
+                           {% elif client.get('status') == 'lead' %}badge-unpaid
+                           {% elif client.get('status') == 'inactive' %}badge-overdue
+                           {% else %}badge-paid{% endif %}">
+          {{ client.get('status','active') | capitalize }}
+        </span>
+      </div>
+      {% if client.get('company') %}<p class="muted-text" style="margin-top:.25rem">🏢 {{ client.company }}</p>{% endif %}
+      <div style="display:flex; gap:1.5rem; flex-wrap:wrap; margin-top:.5rem; font-size:.88rem; color:var(--muted)">
+        {% if client.email %}<span>✉ {{ client.email }}</span>{% endif %}
+        {% if client.get('phone') %}<span>📞 {{ client.phone }}</span>{% endif %}
+        {% if client.get('website') %}<span>🌐 <a href="{{ client.website }}" target="_blank">{{ client.website }}</a></span>{% endif %}
+        {% if client.get('currency') %}<span>💱 {{ client.currency }} ({{ client.currency_symbol }})</span>{% endif %}
+      </div>
+      {% if client.get('notes') %}<p style="margin-top:.5rem; color:var(--muted); font-size:.88rem">{{ client.notes }}</p>{% endif %}
+    </div>
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client', client_id=client.id) }}">✏ Edit Client</a>
+  </div>
+
+  <!-- KPI bar -->
+  <div class="invoice-summary-bar" style="margin-top:1rem; justify-content:flex-start">
+    <div class="isb-item">
+      <span class="isb-val success">{{ cfg.currency_symbol }}{{ "%.2f"|format(total_paid) }}</span>
+      <span class="isb-lbl">Total Paid</span>
+    </div>
+    <div class="isb-sep"></div>
+    <div class="isb-item">
+      <span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(total_billed - total_paid) }}</span>
+      <span class="isb-lbl">Outstanding</span>
+    </div>
+    <div class="isb-sep"></div>
+    <div class="isb-item">
+      <span class="isb-val primary">{{ total_hours }}h</span>
+      <span class="isb-lbl">Hours Logged</span>
+    </div>
+    <div class="isb-sep"></div>
+    <div class="isb-item">
+      <span class="isb-val muted">{{ invoices | length }}</span>
+      <span class="isb-lbl">Invoices</span>
+    </div>
+  </div>
+</div>
+
+<div class="two-col">
+  <!-- Interaction log form -->
+  <div class="card">
+    <h2>Log Interaction</h2>
+    <form method="POST" action="{{ url_for('wft.crm_add_interaction', client_id=client.id) }}">
+      <div class="form-row">
+        <label>Type
+          <select name="type">
+            {% for t in crm_types %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Date
+          <input type="date" name="date" id="int-date" />
+        </label>
+      </div>
+      <label>Summary *
+        <textarea name="summary" rows="3" required placeholder="What happened in this interaction?"></textarea>
+      </label>
+      <label>Follow-up Date
+        <input type="date" name="follow_up" />
+        <small>Set a reminder date for follow-up action.</small>
+      </label>
+      <button type="submit" class="btn btn-primary btn-full">Log Interaction</button>
+    </form>
+  </div>
+
+  <!-- Recent invoices -->
+  <div class="card">
+    <div class="card-header-row">
+      <h2>Invoices</h2>
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.new_invoice') }}">+ New</a>
+    </div>
+    {% if invoices %}
+    <table class="data-table">
+      <thead><tr><th>Invoice #</th><th>Total</th><th>Due</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">{{ inv.invoice_number }}</a></td>
+          <td>{{ inv.currency_symbol }}{{ "%.2f"|format(inv.total) }}</td>
+          <td>{{ inv.due_date }}</td>
+          <td><span class="badge badge-{{ inv.status }}">{{ inv.status | capitalize }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:1.5rem">
+      <p>No invoices for this client yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Interaction timeline -->
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header-row">
+    <h2>Interaction Timeline ({{ interactions | length }})</h2>
+  </div>
+  {% if interactions %}
+  <div class="history-list">
+    {% for i in interactions %}
+    <div class="card history-card" style="border-left:4px solid var(--primary)">
+      <div class="history-row">
+        <div>
+          <div class="history-meta">
+            <span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">{{ i.type }}</span>
+            <span class="muted-text">{{ i.date }}</span>
+            {% if i.get('follow_up') %}
+            <span class="badge badge-unpaid">Follow-up: {{ i.follow_up }}</span>
+            {% endif %}
+          </div>
+          <p style="margin-top:.35rem">{{ i.summary }}</p>
+        </div>
+        <form method="POST"
+          action="{{ url_for('wft.crm_delete_interaction', client_id=client.id, interaction_id=i.id) }}"
+          onsubmit="return confirm('Remove this entry?')" style="flex-shrink:0">
+          <button class="btn btn-danger btn-sm">✕</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">💬</div>
+    <p>No interactions logged yet. Use the form above to track calls, emails, and meetings.</p>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const d = document.getElementById('int-date');
+  if (d && !d.value) d.value = new Date().toISOString().slice(0, 10);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Deadline Risk Predictor{% endblock %}
+
+{% block content %}
+<h1 class="page-title">⏰ Deadline Risk Predictor</h1>
+
+<div class="two-col">
+  <!-- Form -->
+  <div class="card">
+    <h2>Task Details</h2>
+    <form method="POST">
+
+      <label>Task Name
+        <input type="text" name="task_name" value="{{ form_data.get('task_name','') }}"
+          placeholder="e.g. Landing page redesign" required />
+      </label>
+
+      <label>Estimated Hours to Complete
+        <input type="number" name="estimated_hours" min="0.5" step="0.5"
+          value="{{ form_data.get('estimated_hours','') }}" placeholder="e.g. 20" required />
+      </label>
+
+      <label>Deadline Date
+        <input type="date" name="deadline" value="{{ form_data.get('deadline','') }}" required />
+      </label>
+
+      <label>Past On-Time Completion Rate (%)
+        <input type="number" name="past_speed" min="1" max="100" step="1" value="{{ form_data.get('past_speed','70') }}"
+          placeholder="70" />
+        <small>How often do you finish tasks on time? (1–100)</small>
+      </label>
+
+      <label>Daily Workload (hours already committed/day)
+        <input type="number" name="daily_workload" min="0" max="12" step="0.5"
+          value="{{ form_data.get('daily_workload','0') }}" placeholder="0" />
+        <small>Hours per day taken up by OTHER tasks</small>
+      </label>
+
+      <button type="submit" class="btn btn-primary btn-full">Predict →</button>
+    </form>
+  </div>
+
+  <!-- Result -->
+  {% if result %}
+  <div class="card result-card {% if result.get('error') %}result-error
+       {% elif result.risk_level == 'LOW' %}result-low
+       {% elif result.risk_level == 'MEDIUM' %}result-medium
+       {% elif result.risk_level == 'HIGH' %}result-high
+       {% else %}result-critical{% endif %}">
+
+    {% if result.get('error') %}
+    <h2>Error</h2>
+    <p>{{ result.error }}</p>
+
+    {% else %}
+    <h2>{{ result.task_name }}</h2>
+
+    <!-- Progress Ring -->
+    <div class="ring-wrapper">
+      <svg class="progress-ring" viewBox="0 0 120 120">
+        <circle class="ring-bg" cx="60" cy="60" r="50" />
+        <circle class="ring-fill ring-{{ result.risk_level | lower }}" cx="60" cy="60" r="50" stroke-dasharray="314"
+          stroke-dashoffset="{{ 314 - (314 * result.miss_probability / 100) | round }}" id="risk-ring" />
+      </svg>
+      <div class="ring-label">
+        <span class="ring-pct">{{ result.miss_probability }}%</span>
+        <span class="ring-sub">miss risk</span>
+      </div>
+    </div>
+
+    <div class="risk-badge risk-{{ result.risk_level | lower }}">
+      {{ result.risk_level }} RISK
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat">
+        <span class="stat-val">{{ result.days_left }}</span>
+        <span class="stat-lbl">Days Left</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">{{ result.available_hours }}h</span>
+        <span class="stat-lbl">Available Hours</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">{{ result.adjusted_hours }}h</span>
+        <span class="stat-lbl">Adjusted Need</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">{{ result.recommended_daily_hours or '—' }}{% if result.recommended_daily_hours %}h{%
+          endif %}</span>
+        <span class="stat-lbl">Hrs/Day Needed</span>
+      </div>
+    </div>
+
+    <div class="advice-box">
+      <strong>Schedule Advice</strong>
+      <p>{{ result.schedule_advice }}</p>
+    </div>
+
+    {% if result.alerts %}
+    <div class="alerts-box">
+      <strong>⚠ Alerts</strong>
+      <ul>
+        {% for alert in result.alerts %}
+        <li>{{ alert }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card placeholder-card">
+    <div class="empty-state">
+      <div class="empty-icon">⏰</div>
+      <p>Fill in the form and click <em>Predict</em> to see your risk analysis.</p>
+      <p class="muted-text">Your last inputs are automatically remembered.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

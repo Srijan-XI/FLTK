@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Edit Client{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.clients') }}">← Back to Clients</a>
+<h1 class="page-title">✏️ Edit Client</h1>
+
+<div class="card" style="max-width:680px">
+    <form method="POST">
+        <div class="form-row">
+            <label>Name *
+                <input type="text" name="name" required value="{{ client.name }}" />
+            </label>
+            <label>Company
+                <input type="text" name="company" value="{{ client.get('company','') }}" placeholder="Company or business" />
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Email *
+                <input type="email" name="email" required value="{{ client.email }}" />
+            </label>
+            <label>Phone
+                <input type="text" name="phone" value="{{ client.get('phone','') }}" />
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Default Hourly Rate
+                <input type="number" name="default_rate" min="0" step="0.01" value="{{ client.get('default_rate', 0) }}" />
+            </label>
+            <label>Preferred Currency
+                <select name="currency">
+                    <option value="">— Use global default —</option>
+                    {% for code, sym in currencies.items() %}
+                    <option value="{{ code }}" {% if client.get('currency') == code %}selected{% endif %}>
+                        {{ sym }} {{ code }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+        <div class="form-row">
+            <label>Status
+                <select name="status">
+                    {% for s in ['active','lead','inactive','vip'] %}
+                    <option value="{{ s }}" {% if client.get('status','active') == s %}selected{% endif %}>
+                        {{ s | capitalize }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Website
+                <input type="url" name="website" value="{{ client.get('website','') }}" placeholder="https://client.com" />
+            </label>
+        </div>
+        <label>Notes
+            <textarea name="notes" rows="3">{{ client.get('notes','') }}</textarea>
+        </label>
+        <div class="btn-group" style="justify-content:flex-start; margin-top:.5rem">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a class="btn btn-secondary" href="{{ url_for('wft.clients') }}">Cancel</a>
+            <a class="btn btn-secondary" href="{{ url_for('wft.crm_client', client_id=client.id) }}">💬 CRM</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
