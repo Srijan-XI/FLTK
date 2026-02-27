@@ -161,6 +161,12 @@ pytest tests/
 
 ---
 
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started and [CONTRIBUTORS.md](CONTRIBUTORS.md) for a list of everyone who has helped build FLTK.
+
+---
+
 ## License
 
 **Open Source Non-Commercial License** — see [LICENSE](LICENSE) for full terms.
