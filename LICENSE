@@ -1,80 +1,92 @@
-FLTK — Freelancer Toolkit
-Community Edition | Open Source Non-Commercial License
-Copyright (c) 2026 srijan-xi
+VishKron — Freelancer Toolkit (FLTK)
+Community Edition
+Licensed under the GNU Affero General Public License v3.0 (AGPL-3.0)
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Copyright (c) 2026 Srijan (srijan-xi)
 
-PERMISSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-This is the Community Edition of FLTK. It is made freely available to the
-community to use, learn from, and improve together.
+LICENSE
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to:
+VishKron (FLTK) Community Edition is free software: you can redistribute it
+and/or modify it under the terms of the GNU Affero General Public
+License as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
 
-  • Use the Software for personal, educational, or non-commercial purposes.
-  • Copy, modify, merge, adapt, and build upon the Software freely.
-  • Distribute modified or unmodified copies of the Software, provided the
-    original copyright notice and this license are included in all copies or
-    substantial portions of the Software.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-We encourage you to bring your own new ideas, improvements, and modifications
-to this project. Innovation and experimentation are welcome.
+For the full license text see:
+https://www.gnu.org/licenses/agpl-3.0.html
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-RESTRICTIONS
+AGPL REQUIREMENTS
 
-NON-COMMERCIAL USE ONLY.
-This Software may NOT be used, in whole or in part, for any commercial purpose.
-Commercial purposes include, but are not limited to:
+If you modify this software and distribute it, or run a modified
+version as a network service, you must make the complete
+corresponding source code available to users interacting with
+that service.
 
-  • Selling the Software or charging fees for access to it.
-  • Using the Software as part of a paid product or service.
-  • Incorporating the Software into a revenue-generating platform.
+Any derivative work must also be licensed under AGPL-3.0.
 
-Any commercial use requires explicit written permission from the original author.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TRADEMARK NOTICE
+
+"VishKron", "FLTK", "Freelancer Toolkit", and all associated branding,
+logos, and visual identity are trademarks of Srijan (srijan-xi).
+
+The AGPL license grants rights to the source code only.
+
+You may NOT:
+
+• Use the name "VishKron", "FLTK", or "Freelancer Toolkit" for
+  modified versions of this software.
+
+• Use the branding, logos, or visual identity without
+  explicit permission.
+
+• Present a modified version as the official VishKron project.
+
+Forks and derivative versions must use a different name
+and clearly indicate that they are not the official project.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+COMMERCIAL LICENSING
+
+VishKron (FLTK) is also available under a separate commercial license
+for organizations that wish to:
+
+• Integrate FLTK into proprietary products
+• Avoid AGPL copyleft obligations
+• Receive enterprise features or support
+
+For commercial licensing inquiries, contact the author
+via the official project repository.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 DATA & PRIVACY DISCLAIMER
 
-This is a completely offline, self-hosted tool. All data you enter into the
-Software is stored locally on your own machine in plain JSON files.
+VishKron (FLTK) is designed as a self-hosted tool. Data entered into the
+software may be stored locally depending on configuration.
 
-THE AUTHORS AND CONTRIBUTORS OF THIS SOFTWARE PROVIDE NO GUARANTEE, WARRANTY,
-OR ASSURANCE REGARDING:
+The authors provide no guarantee regarding the protection
+of user data. Users are responsible for securing and backing
+up their own information.
 
-  • The security or protection of any third-party data stored or processed
-    through this Software.
-  • Protection against unauthorized access, data loss, or data corruption.
-  • Compliance with any data protection regulations (including but not limited
-    to GDPR, CCPA, or similar laws).
-
-It is the sole responsibility of the user to ensure that sensitive data is
-handled appropriately, backed up securely, and used in accordance with
-applicable laws and regulations.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 NO WARRANTY
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NON-INFRINGEMENT.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-SUMMARY (not a substitute for the full license above)
-
-  ✔  Community Edition — free for everyone
-  ✔  Free to use personally or educationally
-  ✔  Free to modify and experiment with
-  ✔  Free to share with attribution
-  ✘  Commercial use is NOT permitted without permission
-  ⚠  No guarantees on third-party data protection
-  ⚠  Completely offline — you are responsible for your own data security
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE
+USE OF THE SOFTWARE.

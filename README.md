@@ -1,4 +1,4 @@
-# ⚡ FLTK — Freelancer Toolkit
+# ⚡ VishKron — Freelancer Toolkit (FLTK)
 
 A self-hosted web application built with **Flask** that brings together every tool a freelancer needs in one place — from deadline prediction to invoicing, expense tracking, and profitability reports.
 
@@ -163,15 +163,11 @@ pytest tests/
 
 ## Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started and [CONTRIBUTORS.md](CONTRIBUTORS.md) for a list of everyone who has helped build FLTK.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started and [CONTRIBUTORS.md](CONTRIBUTORS.md) for a list of everyone who has helped build VishKron.
 
 ---
 
 ## License
 
-**Open Source Non-Commercial License** — see [LICENSE](LICENSE) for full terms.
+**GNU AGPL-3.0** — see [LICENSE](LICENSE) for full terms.
 
-- ✔ Free to use, modify, and share for personal or educational purposes
-- ✔ Modifications and new ideas are encouraged
-- ✘ Commercial use is **not permitted** without explicit written permission
-- ⚠ This is a fully offline tool — no guarantees are made regarding third-party data protection. You are responsible for the security of your own data.
