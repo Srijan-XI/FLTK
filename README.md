@@ -97,8 +97,8 @@ FreelancerToolkit/
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/srijan-xi/FreelancerToolkit.git
-cd FreelancerToolkit
+git clone https://github.com/Srijan-XI/FLTK.git
+cd FLTK
 ```
 
 ### 2. Create and activate a virtual environment
