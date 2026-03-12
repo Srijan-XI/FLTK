@@ -11,7 +11,8 @@
     <h2>Download Backup</h2>
     <p style="color:var(--muted); font-size:.9rem; margin-bottom:1rem">
       Downloads a <code>.zip</code> file containing all your data:
-      clients, invoices, work hours, expenses, CRM interactions, and settings.
+      clients, invoices, work hours, expenses, CRM interactions, notes, quotes,
+      contracts, timer sessions, calendar blocks, SDLC templates/projects, and settings.
       Store it in a safe place — it can be used to fully restore your data.
     </p>
     <a class="btn btn-primary btn-full" href="{{ url_for('wft.backup_download') }}">
@@ -20,7 +21,11 @@
     <p class="note" style="margin-top:.75rem; font-size:.8rem">
       Files included: <code>clients.json</code>, <code>invoices.json</code>,
       <code>workhours.json</code>, <code>expenses.json</code>,
-      <code>crm_interactions.json</code>, <code>settings.json</code>
+      <code>crm_interactions.json</code>, <code>client_notes.json</code>,
+      <code>quotes.json</code>, <code>contracts.json</code>,
+      <code>timer_sessions.json</code>, <code>calendar_blocks.json</code>,
+      <code>sdlc_templates.json</code>, <code>scoped_projects.json</code>,
+      <code>settings.json</code>
     </p>
   </div>
 

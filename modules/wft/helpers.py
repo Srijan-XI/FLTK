@@ -5,12 +5,15 @@ Covers: invoice generation, client tracker, workhour analytics, proposal templat
 
 import json
 import os
-from datetime import date, datetime
+import calendar
+from datetime import date, datetime, timedelta
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 CLIENT_NOTES_FILE = "client_notes.json"
 CONTRACT_FILE = "contracts.json"
 QUOTE_FILE = "quotes.json"
+TIMER_FILE = "timer_sessions.json"
+CALENDAR_FILE = "calendar_blocks.json"
 
 CONTRACT_TYPES = [
     "Service Agreement",
@@ -21,6 +24,7 @@ CONTRACT_TYPES = [
 ]
 
 QUOTE_STATUS_OPTIONS = ["draft", "sent", "accepted", "rejected", "expired"]
+BLOCK_TYPES = ["blocked", "vacation", "meeting", "holiday"]
 
 
 def _load(filename: str) -> list:
@@ -1341,6 +1345,221 @@ def _weekly_hours(entries: list, weeks: int = 8, include_year: bool = False) -> 
     return [{"week": w.split("-")[1], "hours": h} for w, h in sorted_weeks]
 
 
+# ── Live Timer ───────────────────────────────────────────────────────────────
+
+def get_timer_sessions() -> list:
+    sessions = _load(TIMER_FILE)
+    return sorted(sessions, key=lambda item: item.get("start_time", ""), reverse=True)
+
+
+def get_active_session() -> dict | None:
+    sessions = get_timer_sessions()
+    return next((session for session in sessions if session.get("status") == "running"), None)
+
+
+def start_timer(client: str, task: str, mode: str = "normal") -> dict:
+    if get_active_session():
+        raise ValueError("Stop current session first.")
+
+    sessions = _load(TIMER_FILE)
+    now = datetime.now().replace(microsecond=0)
+    mode = "pomodoro" if mode == "pomodoro" else "normal"
+    session = {
+        "id": max((item.get("id", 0) for item in sessions), default=0) + 1,
+        "client": (client or "Unknown").strip(),
+        "task": (task or "Untitled Task").strip(),
+        "start_time": now.isoformat(),
+        "end_time": None,
+        "duration_seconds": 0,
+        "date": now.date().isoformat(),
+        "status": "running",
+        "mode": mode,
+    }
+    sessions.append(session)
+    _save(TIMER_FILE, sessions)
+    return session
+
+
+def stop_timer(session_id: int) -> dict:
+    sessions = _load(TIMER_FILE)
+    now = datetime.now().replace(microsecond=0)
+    for session in sessions:
+        if session.get("id") != session_id:
+            continue
+        if session.get("status") != "running":
+            raise ValueError("Only running sessions can be stopped.")
+        try:
+            start_dt = datetime.fromisoformat(session.get("start_time", ""))
+        except ValueError as exc:
+            raise ValueError("Session start time is invalid.") from exc
+        duration = max(0, int((now - start_dt).total_seconds()))
+        session["end_time"] = now.isoformat()
+        session["duration_seconds"] = duration
+        session["status"] = "stopped"
+        session["date"] = start_dt.date().isoformat()
+        _save(TIMER_FILE, sessions)
+        return session
+    raise ValueError("Timer session not found.")
+
+
+def save_timer_to_hours(session_id: int) -> dict:
+    sessions = _load(TIMER_FILE)
+    for session in sessions:
+        if session.get("id") != session_id:
+            continue
+        if session.get("status") != "stopped":
+            raise ValueError("Only stopped sessions can be saved to hours.")
+        duration_seconds = int(session.get("duration_seconds", 0) or 0)
+        hours = round(duration_seconds / 3600, 2)
+        log_hours(
+            task=session.get("task", "Untitled Task"),
+            client=session.get("client", "Unknown"),
+            hours=hours,
+            log_date=session.get("date", date.today().isoformat()),
+            notes=f"Logged from live timer ({session.get('mode', 'normal')}).",
+            tag="timer",
+        )
+        session["status"] = "saved"
+        _save(TIMER_FILE, sessions)
+        return session
+    raise ValueError("Timer session not found.")
+
+
+def discard_timer(session_id: int) -> dict:
+    sessions = _load(TIMER_FILE)
+    for session in sessions:
+        if session.get("id") != session_id:
+            continue
+        session["status"] = "discarded"
+        _save(TIMER_FILE, sessions)
+        return session
+    raise ValueError("Timer session not found.")
+
+
+def delete_timer_session(session_id: int):
+    sessions = [session for session in _load(TIMER_FILE) if session.get("id") != session_id]
+    _save(TIMER_FILE, sessions)
+
+
+# ── Availability Calendar ───────────────────────────────────────────────────
+
+def get_calendar_blocks() -> list:
+    blocks = _load(CALENDAR_FILE)
+    return sorted(blocks, key=lambda item: (item.get("date_from", ""), item.get("date_to", "")), reverse=True)
+
+
+def add_calendar_block(date_from: str, date_to: str, label: str, block_type: str) -> dict:
+    blocks = _load(CALENDAR_FILE)
+    try:
+        start = date.fromisoformat(date_from)
+        end = date.fromisoformat(date_to)
+    except ValueError as exc:
+        raise ValueError("Invalid block dates.") from exc
+    if end < start:
+        start, end = end, start
+
+    normalized_type = block_type if block_type in BLOCK_TYPES else "blocked"
+    block = {
+        "id": max((item.get("id", 0) for item in blocks), default=0) + 1,
+        "date_from": start.isoformat(),
+        "date_to": end.isoformat(),
+        "label": (label or "Blocked").strip(),
+        "type": normalized_type,
+    }
+    blocks.append(block)
+    _save(CALENDAR_FILE, blocks)
+    return block
+
+
+def delete_calendar_block(block_id: int):
+    blocks = [block for block in _load(CALENDAR_FILE) if block.get("id") != block_id]
+    _save(CALENDAR_FILE, blocks)
+
+
+def get_calendar_events(year: int, month: int) -> dict:
+    _, month_days = calendar.monthrange(year, month)
+    events: dict[str, dict] = {}
+    for day in range(1, month_days + 1):
+        day_key = date(year, month, day).isoformat()
+        events[day_key] = {
+            "projects": [],
+            "hours": 0.0,
+            "blocks": [],
+            "status": "free",
+        }
+
+    # Aggregate work hours into visible days.
+    for entry in get_workhours():
+        day_key = entry.get("date", "")
+        if day_key not in events:
+            continue
+        try:
+            events[day_key]["hours"] = round(
+                float(events[day_key]["hours"]) + float(entry.get("hours", 0) or 0),
+                2,
+            )
+        except (TypeError, ValueError):
+            continue
+
+    # Mark scoped project windows.
+    month_start = date(year, month, 1)
+    month_end = date(year, month, month_days)
+    for project in get_scoped_projects():
+        raw_start = project.get("start_date") or project.get("target_date")
+        raw_end = project.get("target_date") or project.get("start_date")
+        if not raw_start or not raw_end:
+            continue
+        try:
+            proj_start = date.fromisoformat(raw_start)
+            proj_end = date.fromisoformat(raw_end)
+        except ValueError:
+            continue
+        if proj_end < proj_start:
+            proj_start, proj_end = proj_end, proj_start
+        overlap_start = max(proj_start, month_start)
+        overlap_end = min(proj_end, month_end)
+        if overlap_end < overlap_start:
+            continue
+        cursor = overlap_start
+        while cursor <= overlap_end:
+            key = cursor.isoformat()
+            events[key]["projects"].append(project.get("project_name", "Project"))
+            cursor += timedelta(days=1)
+
+    # Apply manual blocked ranges.
+    for block in get_calendar_blocks():
+        try:
+            block_start = date.fromisoformat(block.get("date_from", ""))
+            block_end = date.fromisoformat(block.get("date_to", ""))
+        except ValueError:
+            continue
+        if block_end < block_start:
+            block_start, block_end = block_end, block_start
+        overlap_start = max(block_start, month_start)
+        overlap_end = min(block_end, month_end)
+        if overlap_end < overlap_start:
+            continue
+        cursor = overlap_start
+        while cursor <= overlap_end:
+            key = cursor.isoformat()
+            label = block.get("label", "Blocked")
+            events[key]["blocks"].append(label)
+            cursor += timedelta(days=1)
+
+    working_hours_per_day = float(get_settings().get("working_hours_per_day", 8.0) or 8.0)
+    for day_data in events.values():
+        if day_data["blocks"]:
+            day_data["status"] = "blocked"
+        elif float(day_data["hours"]) >= working_hours_per_day or bool(day_data["projects"]):
+            day_data["status"] = "busy"
+        elif float(day_data["hours"]) > 0:
+            day_data["status"] = "light"
+        else:
+            day_data["status"] = "free"
+
+    return events
+
+
 def get_overdue_invoices() -> list:
     cfg = get_settings()
     late_fee_rate = float(cfg.get("late_fee_rate", DEFAULT_SETTINGS["late_fee_rate"]))
@@ -1808,6 +2027,7 @@ DATA_FILES = [
     "settings.json", "expenses.json", "crm_interactions.json",
     SDLC_TEMPLATE_FILE, SCOPED_PROJECT_FILE,
     CLIENT_NOTES_FILE, CONTRACT_FILE, QUOTE_FILE,
+    TIMER_FILE, CALENDAR_FILE,
 ]
 
 

@@ -4,6 +4,7 @@
 {% block content %}
 <a class="back-link" href="{{ url_for('wft.contracts') }}">← Back to Contracts</a>
 <h1 class="page-title">{{ 'Edit Contract' if contract else 'New Contract' }}</h1>
+<p class="subtitle" style="margin-top:-.8rem">Capture legal and commercial terms in one place.</p>
 
 <div class="card">
   <form method="POST">
@@ -42,6 +43,7 @@
       </label>
       <label>Project Value
         <input type="number" name="project_value" step="0.01" min="0" value="{{ contract.project_value if contract else 0 }}" />
+        <small>Total contract value before penalties or adjustments.</small>
       </label>
     </div>
 
@@ -61,6 +63,7 @@
       </label>
       <label>Late Fee (% monthly)
         <input type="number" name="late_fee_percent" step="0.1" min="0" value="{{ contract.late_fee_percent if contract else 0 }}" />
+        <small>Used as reference when payment is overdue.</small>
       </label>
     </div>
     <div class="form-row">

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Live Timer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">⏱ Live Time Tracker</h1>
+</div>
+
+{% if active %}
+<div class="card timer-active-card">
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+    <div>
+      <h2 style="margin-bottom:.35rem">Active Session</h2>
+      <p><strong>Client:</strong> {{ active.client }}</p>
+      <p><strong>Task:</strong> {{ active.task }}</p>
+      <p><strong>Mode:</strong> {{ active.mode | capitalize }}</p>
+    </div>
+    <div class="timer-clock-wrap">
+      <div id="timer-clock" class="timer-clock">00:00:00</div>
+      <form method="POST" action="{{ url_for('wft.stop_timer', session_id=active.id) }}" id="timer-stop-form">
+        <button class="btn btn-danger" type="submit">Stop Timer</button>
+      </form>
+    </div>
+  </div>
+
+  {% if active.mode == 'pomodoro' %}
+  <div class="pomodoro-wrap">
+    <svg class="pomodoro-ring" viewBox="0 0 120 120" aria-hidden="true">
+      <circle class="pomodoro-ring-bg" cx="60" cy="60" r="54"></circle>
+      <circle class="pomodoro-ring-fg" id="pomodoro-ring-fg" cx="60" cy="60" r="54"></circle>
+    </svg>
+    <div class="pomodoro-text">
+      <p class="muted-text">Pomodoro countdown</p>
+      <div id="pomodoro-countdown" class="timer-clock">25:00</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% else %}
+<div class="card">
+  <h2>Start New Session</h2>
+  <form method="POST" action="{{ url_for('wft.start_timer') }}">
+    <div class="form-row">
+      <label>Client
+        <select name="client" required>
+          <option value="" disabled selected>-- Select client --</option>
+          {% for c in clients %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Task
+        <input type="text" name="task" required placeholder="e.g. Build onboarding page" />
+      </label>
+    </div>
+    <label>Mode
+      <select name="mode">
+        <option value="normal">Normal</option>
+        <option value="pomodoro">Pomodoro (25 min)</option>
+      </select>
+    </label>
+    <button type="submit" class="btn btn-primary">Start Timer</button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:1rem;">
+  <div class="entity-toolbar" style="margin-bottom:.5rem;">
+    <h2 style="margin:0;">Recent Sessions ({{ total_sessions }})</h2>
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.export_timer_sessions') }}">⬇ Export CSV</a>
+  </div>
+  {% if sessions %}
+  <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Client</th>
+          <th>Task</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in sessions %}
+        {% set secs = s.duration_seconds|int %}
+        {% set hh = "%02d"|format(secs // 3600) %}
+        {% set mm = "%02d"|format((secs % 3600) // 60) %}
+        {% set ss = "%02d"|format(secs % 60) %}
+        <tr>
+          <td>{{ s.date }}</td>
+          <td>{{ s.client }}</td>
+          <td>{{ s.task }}</td>
+          <td>{{ hh }}:{{ mm }}:{{ ss }}</td>
+          <td><span class="badge badge-{{ s.status }}">{{ s.status }}</span></td>
+          <td class="action-cell">
+            {% if s.status == 'stopped' %}
+            <form method="POST" action="{{ url_for('wft.save_timer', session_id=s.id) }}" style="display:inline;">
+              <button class="btn btn-primary btn-sm" type="submit">Log to Hours</button>
+            </form>
+            <form method="POST" action="{{ url_for('wft.discard_timer', session_id=s.id) }}" style="display:inline;">
+              <button class="btn btn-secondary btn-sm" type="submit">Discard</button>
+            </form>
+            {% endif %}
+            <form method="POST" action="{{ url_for('wft.delete_timer', session_id=s.id) }}" style="display:inline;"
+                  onsubmit="return confirm('Delete this timer session?');">
+              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if total_pages > 1 %}
+  <div style="display:flex; align-items:center; justify-content:center; gap:.6rem; margin-top:.9rem; flex-wrap:wrap;">
+    {% if page > 1 %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.timer', page=page-1) }}">← Previous</a>
+    {% endif %}
+    <span class="muted-text">Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.timer', page=page+1) }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+  <div class="empty-state" style="padding:1.25rem;">
+    <p>No timer sessions yet.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if active %}
+<script>
+(function () {
+  const active = {{ active | tojson }};
+  const clockEl = document.getElementById('timer-clock');
+
+  function formatHHMMSS(totalSeconds) {
+    const safe = Math.max(0, Math.floor(totalSeconds));
+    const h = String(Math.floor(safe / 3600)).padStart(2, '0');
+    const m = String(Math.floor((safe % 3600) / 60)).padStart(2, '0');
+    const s = String(safe % 60).padStart(2, '0');
+    return `${h}:${m}:${s}`;
+  }
+
+  function tickElapsed() {
+    const started = new Date(active.start_time);
+    const elapsed = Math.floor((Date.now() - started.getTime()) / 1000);
+    if (clockEl) clockEl.textContent = formatHHMMSS(elapsed);
+  }
+
+  tickElapsed();
+  setInterval(tickElapsed, 1000);
+
+  if (active.mode !== 'pomodoro') return;
+
+  const ring = document.getElementById('pomodoro-ring-fg');
+  const countdownEl = document.getElementById('pomodoro-countdown');
+  const total = 25 * 60;
+  const started = new Date(active.start_time);
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+
+  if (ring) {
+    ring.style.strokeDasharray = `${circumference}`;
+  }
+
+  function notifyDone() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      new Notification('Pomodoro complete! Take a break.');
+      return;
+    }
+    if (Notification.permission !== 'denied') {
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') new Notification('Pomodoro complete! Take a break.');
+      });
+    }
+  }
+
+  let done = false;
+  function tickPomodoro() {
+    const elapsed = Math.floor((Date.now() - started.getTime()) / 1000);
+    const remaining = Math.max(0, total - elapsed);
+    const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    if (countdownEl) countdownEl.textContent = `${mm}:${ss}`;
+
+    if (ring) {
+      const progress = (total - remaining) / total;
+      ring.style.strokeDashoffset = String(circumference * progress);
+    }
+
+    if (remaining === 0 && !done) {
+      done = true;
+      notifyDone();
+      const stopForm = document.getElementById('timer-stop-form');
+      if (stopForm) stopForm.submit();
+    }
+  }
+
+  tickPomodoro();
+  setInterval(tickPomodoro, 1000);
+})();
+</script>
+{% endif %}
+{% endblock %}

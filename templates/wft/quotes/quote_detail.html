@@ -16,7 +16,7 @@
     </div>
   </div>
 
-  <div style="display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
+  <div style="display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem">
     <div>
       <p><strong>{{ quote.title }}</strong></p>
     </div>
@@ -25,6 +25,25 @@
       {% if quote.converted_invoice_id %}
       <span class="badge badge-paid">→ <a href="{{ url_for('wft.invoice_detail', inv_id=quote.converted_invoice_id) }}" style="color:inherit; text-decoration:none">Invoice INV-{{ "%04d"|format(quote.converted_invoice_id) }}</a></span>
       {% endif %}
+    </div>
+  </div>
+
+  <div class="detail-meta-grid">
+    <div class="meta-chip">
+      <span class="muted-text">Client</span>
+      <strong>{{ quote.client_name }}</strong>
+    </div>
+    <div class="meta-chip">
+      <span class="muted-text">Issued</span>
+      <strong>{{ quote.issue_date }}</strong>
+    </div>
+    <div class="meta-chip">
+      <span class="muted-text">Valid Until</span>
+      <strong>{{ quote.expiry_date or 'N/A' }}</strong>
+    </div>
+    <div class="meta-chip">
+      <span class="muted-text">Total</span>
+      <strong>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.total) }}</strong>
     </div>
   </div>
 
@@ -60,21 +79,15 @@
     <a class="btn btn-secondary" href="{{ url_for('wft.pdf_quote', quote_id=quote.id) }}">⬇ PDF</a>
     <a class="btn btn-secondary" href="{{ url_for('wft.print_quote', quote_id=quote.id) }}" target="_blank">🖨 Print</a>
 
-    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
-      <input type="hidden" name="status" value="sent" />
-      <button class="btn btn-secondary" {% if quote.status == 'sent' %}disabled{% endif %}>Mark Sent</button>
-    </form>
-    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
-      <input type="hidden" name="status" value="accepted" />
-      <button class="btn btn-secondary" {% if quote.status == 'accepted' %}disabled{% endif %}>Mark Accepted</button>
-    </form>
-    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
-      <input type="hidden" name="status" value="rejected" />
-      <button class="btn btn-secondary" {% if quote.status == 'rejected' %}disabled{% endif %}>Mark Rejected</button>
-    </form>
-    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
-      <input type="hidden" name="status" value="expired" />
-      <button class="btn btn-secondary" {% if quote.status == 'expired' %}disabled{% endif %}>Mark Expired</button>
+    <form class="status-inline-form" method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
+      <select name="status">
+        <option value="draft" {% if quote.status == 'draft' %}selected{% endif %}>Draft</option>
+        <option value="sent" {% if quote.status == 'sent' %}selected{% endif %}>Sent</option>
+        <option value="accepted" {% if quote.status == 'accepted' %}selected{% endif %}>Accepted</option>
+        <option value="rejected" {% if quote.status == 'rejected' %}selected{% endif %}>Rejected</option>
+        <option value="expired" {% if quote.status == 'expired' %}selected{% endif %}>Expired</option>
+      </select>
+      <button class="btn btn-secondary" type="submit">Update Status</button>
     </form>
 
     {% if quote.status == 'accepted' and not quote.converted_invoice_id %}

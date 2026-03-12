@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, Response
+from flask import render_template, request, redirect, url_for, flash, Response, jsonify
 from modules.wft import wft_bp
 import modules.wft.helpers as h
 
@@ -1146,6 +1146,192 @@ def delete_hours(entry_id):
     h.delete_workhour(entry_id)
     flash("Entry deleted.", "info")
     return redirect(url_for("wft.hours"))
+
+
+# ── Live Timer ───────────────────────────────────────────────────────────────
+
+@wft_bp.route("/timer")
+def timer():
+    active = h.get_active_session()
+    all_sessions = h.get_timer_sessions()
+    page = request.args.get("page", 1, type=int)
+    per_page = 10
+    total_sessions = len(all_sessions)
+    total_pages = max(1, (total_sessions + per_page - 1) // per_page)
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+    start = (page - 1) * per_page
+    end = start + per_page
+    sessions = all_sessions[start:end]
+    clients = h.get_clients()
+    return render_template(
+        "wft/timer.html",
+        active=active,
+        sessions=sessions,
+        clients=clients,
+        page=page,
+        total_pages=total_pages,
+        total_sessions=total_sessions,
+    )
+
+
+@wft_bp.route("/timer/start", methods=["POST"])
+def start_timer():
+    client = request.form.get("client", "").strip()
+    task = request.form.get("task", "").strip()
+    mode = request.form.get("mode", "normal")
+    if not client or not task:
+        flash("Client and task are required.", "error")
+        return redirect(url_for("wft.timer"))
+    try:
+        h.start_timer(client=client, task=task, mode=mode)
+        flash("Timer started.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.timer"))
+
+
+@wft_bp.route("/timer/stop/<int:session_id>", methods=["POST"])
+def stop_timer(session_id):
+    try:
+        h.stop_timer(session_id)
+        flash("Timer stopped.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.timer"))
+
+
+@wft_bp.route("/timer/save/<int:session_id>", methods=["POST"])
+def save_timer(session_id):
+    try:
+        session = h.save_timer_to_hours(session_id)
+        hours = round(float(session.get("duration_seconds", 0) or 0) / 3600, 2)
+        flash(f"Logged {hours:.2f} hours for {session.get('task', 'task')}.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.timer"))
+
+
+@wft_bp.route("/timer/discard/<int:session_id>", methods=["POST"])
+def discard_timer(session_id):
+    try:
+        h.discard_timer(session_id)
+        flash("Timer session discarded.", "info")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.timer"))
+
+
+@wft_bp.route("/timer/delete/<int:session_id>", methods=["POST"])
+def delete_timer(session_id):
+    h.delete_timer_session(session_id)
+    flash("Timer session deleted.", "info")
+    return redirect(url_for("wft.timer"))
+
+
+@wft_bp.route("/timer/export")
+def export_timer_sessions():
+    import csv
+    import io
+
+    sessions = h.get_timer_sessions()
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "ID", "Date", "Client", "Task", "Mode", "Status",
+        "Start", "End", "Duration Seconds", "Duration Hours",
+    ])
+    for session in sessions:
+        seconds = int(session.get("duration_seconds", 0) or 0)
+        writer.writerow([
+            session.get("id"),
+            session.get("date", ""),
+            session.get("client", ""),
+            session.get("task", ""),
+            session.get("mode", "normal"),
+            session.get("status", ""),
+            session.get("start_time", ""),
+            session.get("end_time", ""),
+            seconds,
+            round(seconds / 3600, 2),
+        ])
+    return Response(
+        out.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=timer-sessions.csv"},
+    )
+
+
+# ── Availability Calendar ───────────────────────────────────────────────────
+
+@wft_bp.route("/calendar")
+def calendar():
+    from datetime import date
+
+    today = date.today()
+    year = request.args.get("year", type=int) or today.year
+    month = request.args.get("month", type=int) or today.month
+    if month < 1 or month > 12:
+        month = today.month
+
+    events = h.get_calendar_events(year, month)
+    blocks = h.get_calendar_blocks()
+    cfg = h.get_settings()
+
+    prev_year, prev_month = (year - 1, 12) if month == 1 else (year, month - 1)
+    next_year, next_month = (year + 1, 1) if month == 12 else (year, month + 1)
+
+    import calendar as pycalendar
+
+    return render_template(
+        "wft/calendar.html",
+        events=events,
+        blocks=blocks,
+        cfg=cfg,
+        year=year,
+        month=month,
+        month_name=pycalendar.month_name[month],
+        prev_year=prev_year,
+        prev_month=prev_month,
+        next_year=next_year,
+        next_month=next_month,
+        block_types=h.BLOCK_TYPES,
+    )
+
+
+@wft_bp.route("/calendar/block", methods=["POST"])
+def add_calendar_block():
+    date_from = request.form.get("date_from", "")
+    date_to = request.form.get("date_to", "")
+    label = request.form.get("label", "")
+    block_type = request.form.get("type", "blocked")
+    try:
+        h.add_calendar_block(date_from=date_from, date_to=date_to, label=label, block_type=block_type)
+        flash("Calendar block added.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.calendar"))
+
+
+@wft_bp.route("/calendar/block/<int:block_id>/delete", methods=["POST"])
+def delete_calendar_block(block_id):
+    h.delete_calendar_block(block_id)
+    flash("Calendar block removed.", "info")
+    return redirect(url_for("wft.calendar"))
+
+
+@wft_bp.route("/calendar/api/events")
+def calendar_events_api():
+    from datetime import date
+
+    today = date.today()
+    year = request.args.get("year", type=int) or today.year
+    month = request.args.get("month", type=int) or today.month
+    if month < 1 or month > 12:
+        month = today.month
+    return jsonify(h.get_calendar_events(year, month))
 
 
 # ── CSV Export ────────────────────────────────────────────────────────────────

@@ -3,7 +3,10 @@
 
 {% block content %}
 <div class="page-header">
-  <h1 class="page-title">📝 Contracts</h1>
+  <div>
+    <h1 class="page-title">📝 Contracts</h1>
+    <p class="subtitle" style="margin:0">Manage agreement lifecycle from draft to signature.</p>
+  </div>
   <a class="btn btn-primary" href="{{ url_for('wft.new_contract') }}">+ New Contract</a>
 </div>
 
@@ -19,15 +22,19 @@
 
 {% if contracts %}
 <div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
-  <table class="data-table">
+  <div class="entity-toolbar" style="padding:.9rem .95rem 0 .95rem;">
+    <h2 style="margin:0">All Contracts ({{ contracts|length }})</h2>
+    <input type="text" class="search-input" placeholder="Search contracts…" oninput="filterTable('contracts-table', this.value)" />
+  </div>
+  <table class="data-table sortable" id="contracts-table">
     <thead>
       <tr>
-        <th>Title</th>
-        <th>Type</th>
-        <th>Client</th>
-        <th>Value</th>
-        <th>Status</th>
-        <th>Created</th>
+        <th data-col="0">Title ↕</th>
+        <th data-col="1">Type ↕</th>
+        <th data-col="2">Client ↕</th>
+        <th data-col="3">Value ↕</th>
+        <th data-col="4">Status ↕</th>
+        <th data-col="5">Created ↕</th>
         <th></th>
       </tr>
     </thead>
@@ -55,4 +62,32 @@
   </div>
 </div>
 {% endif %}
+
+<script>
+  function filterTable(id, query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll(`#${id} tbody tr`).forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll('.sortable th[data-col]').forEach(th => {
+    th.style.cursor = 'pointer';
+    th.addEventListener('click', () => {
+      const col = Number(th.dataset.col);
+      const tbody = th.closest('table').querySelector('tbody');
+      const rows = [...tbody.querySelectorAll('tr')];
+      const asc = th.dataset.order !== 'asc';
+      th.dataset.order = asc ? 'asc' : 'desc';
+      rows.sort((a, b) => {
+        const va = a.cells[col].textContent.trim();
+        const vb = b.cells[col].textContent.trim();
+        return asc
+          ? va.localeCompare(vb, undefined, { numeric: true })
+          : vb.localeCompare(va, undefined, { numeric: true });
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+</script>
 {% endblock %}

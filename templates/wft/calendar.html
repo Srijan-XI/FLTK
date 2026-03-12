@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% block title %}Availability Calendar{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📅 Availability Calendar</h1>
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <div class="calendar-nav">
+    <button id="calendar-prev" class="btn btn-secondary btn-sm" data-year="{{ prev_year }}" data-month="{{ prev_month }}">← Prev Month</button>
+    <h2 id="calendar-title" style="margin:0;">{{ month_name }} {{ year }}</h2>
+    <button id="calendar-next" class="btn btn-secondary btn-sm" data-year="{{ next_year }}" data-month="{{ next_month }}">Next Month →</button>
+  </div>
+
+  <div class="calendar-legend">
+    <span class="legend-item"><span class="legend-dot day-free"></span> Free</span>
+    <span class="legend-item"><span class="legend-dot day-light"></span> Light</span>
+    <span class="legend-item"><span class="legend-dot day-busy"></span> Busy</span>
+    <span class="legend-item"><span class="legend-dot day-blocked"></span> Blocked</span>
+  </div>
+
+  <div class="period-tabs" id="calendar-filter-tabs" style="margin:.2rem 0 .9rem;">
+    <button type="button" class="tab active" data-filter="all">All</button>
+    <button type="button" class="tab" data-filter="free">Free</button>
+    <button type="button" class="tab" data-filter="light">Light</button>
+    <button type="button" class="tab" data-filter="busy">Busy</button>
+    <button type="button" class="tab" data-filter="blocked">Blocked</button>
+  </div>
+
+  <div class="calendar-weekdays">
+    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+  </div>
+  <div id="calendar-grid" class="calendar-grid"></div>
+
+  <div class="card" style="margin-top:1rem;">
+    <h2 style="font-size:1rem;">Day Detail</h2>
+    <div id="day-detail" class="muted-text">Click a day to view details.</div>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Add Block</h2>
+    <form method="POST" action="{{ url_for('wft.add_calendar_block') }}">
+      <div class="form-row">
+        <label>From
+          <input type="date" name="date_from" required />
+        </label>
+        <label>To
+          <input type="date" name="date_to" required />
+        </label>
+      </div>
+      <label>Label
+        <input type="text" name="label" placeholder="Vacation" required />
+      </label>
+      <label>Type
+        <select name="type">
+          {% for t in block_types %}
+          <option value="{{ t }}">{{ t | capitalize }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn btn-primary" type="submit">Add Block</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Existing Blocks</h2>
+    {% if blocks %}
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date Range</th>
+            <th>Label</th>
+            <th>Type</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for block in blocks %}
+          <tr>
+            <td>{{ block.date_from }} → {{ block.date_to }}</td>
+            <td>{{ block.label }}</td>
+            <td><span class="badge">{{ block.type }}</span></td>
+            <td class="action-cell">
+              <form method="POST" action="{{ url_for('wft.delete_calendar_block', block_id=block.id) }}" style="display:inline;"
+                    onsubmit="return confirm('Delete this block?');">
+                <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:1.25rem;">
+      <p>No manual blocks configured.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+(function () {
+  let year = {{ year }};
+  let month = {{ month }};
+  let events = {{ events | tojson }};
+  let activeFilter = 'all';
+
+  const grid = document.getElementById('calendar-grid');
+  const detail = document.getElementById('day-detail');
+  const title = document.getElementById('calendar-title');
+
+  function monthName(y, m) {
+    return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  function statusClass(status) {
+    if (status === 'blocked') return 'day-blocked';
+    if (status === 'busy') return 'day-busy';
+    if (status === 'light') return 'day-light';
+    return 'day-free';
+  }
+
+  function renderDetail(dateKey, dayData) {
+    const projects = dayData.projects.length ? dayData.projects.join(', ') : 'None';
+    const blocks = dayData.blocks.length ? dayData.blocks.join(', ') : 'None';
+    const hours = Number(dayData.hours || 0).toFixed(2);
+    detail.innerHTML = `
+      <p><strong>Date:</strong> ${dateKey}</p>
+      <p><strong>Status:</strong> ${dayData.status}</p>
+      <p><strong>Hours logged:</strong> ${hours}</p>
+      <p><strong>Projects:</strong> ${projects}</p>
+      <p><strong>Manual blocks:</strong> ${blocks}</p>
+    `;
+  }
+
+  function renderGrid() {
+    const firstWeekday = new Date(year, month - 1, 1).getDay();
+    const leading = (firstWeekday + 6) % 7;
+    const daysInMonth = new Date(year, month, 0).getDate();
+
+    title.textContent = monthName(year, month);
+    grid.innerHTML = '';
+
+    for (let i = 0; i < leading; i += 1) {
+      const empty = document.createElement('div');
+      empty.className = 'calendar-day calendar-day-empty';
+      grid.appendChild(empty);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dateKey = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayData = events[dateKey] || { projects: [], hours: 0, blocks: [], status: 'free' };
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = `calendar-day ${statusClass(dayData.status)}`;
+      cell.dataset.status = dayData.status;
+      cell.innerHTML = `
+        <span class="calendar-day-num">${day}</span>
+        <span class="calendar-day-meta">${Number(dayData.hours || 0).toFixed(1)}h</span>
+      `;
+      if (activeFilter !== 'all' && dayData.status !== activeFilter) {
+        cell.style.display = 'none';
+      }
+      cell.addEventListener('click', () => renderDetail(dateKey, dayData));
+      grid.appendChild(cell);
+    }
+  }
+
+  function bindFilters() {
+    const tabs = document.querySelectorAll('#calendar-filter-tabs .tab');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((node) => node.classList.remove('active'));
+        tab.classList.add('active');
+        activeFilter = tab.dataset.filter;
+        renderGrid();
+      });
+    });
+  }
+
+  async function loadMonth(y, m) {
+    const resp = await fetch(`{{ url_for('wft.calendar_events_api') }}?year=${y}&month=${m}`);
+    if (!resp.ok) return;
+    events = await resp.json();
+    year = y;
+    month = m;
+    renderGrid();
+    detail.textContent = 'Click a day to view details.';
+
+    const prev = document.getElementById('calendar-prev');
+    const next = document.getElementById('calendar-next');
+    const prevMonth = m === 1 ? 12 : m - 1;
+    const prevYear = m === 1 ? y - 1 : y;
+    const nextMonth = m === 12 ? 1 : m + 1;
+    const nextYear = m === 12 ? y + 1 : y;
+    prev.dataset.year = String(prevYear);
+    prev.dataset.month = String(prevMonth);
+    next.dataset.year = String(nextYear);
+    next.dataset.month = String(nextMonth);
+  }
+
+  document.getElementById('calendar-prev').addEventListener('click', (e) => {
+    const y = Number(e.currentTarget.dataset.year);
+    const m = Number(e.currentTarget.dataset.month);
+    loadMonth(y, m);
+  });
+
+  document.getElementById('calendar-next').addEventListener('click', (e) => {
+    const y = Number(e.currentTarget.dataset.year);
+    const m = Number(e.currentTarget.dataset.month);
+    loadMonth(y, m);
+  });
+
+  bindFilters();
+  renderGrid();
+})();
+</script>
+{% endblock %}

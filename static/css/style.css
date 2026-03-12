@@ -93,6 +93,7 @@ a:hover { text-decoration: underline; }
 }
 .dropdown a { display: block; padding: .55rem 1rem; color: var(--text); font-size: .88rem; }
 .dropdown a:hover { background: var(--border); text-decoration: none; }
+.dropdown-sep { border-top: 1px solid var(--border); margin: .35rem .6rem; }
 .nav-group:hover .dropdown,
 .dropdown.open { display: block; }
 
@@ -314,6 +315,7 @@ label small { color: var(--muted); font-size: .8rem; }
 }
 .tab:hover { color: var(--text); text-decoration: none; }
 .tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+button.tab { background: transparent; font-family: inherit; cursor: pointer; }
 
 /* ── Invoice summary bar ──────────────────────────────────────────────────── */
 .invoice-summary-bar {
@@ -453,6 +455,195 @@ label small { color: var(--muted); font-size: .8rem; }
 .inv-number { color: var(--muted); font-size: .9rem; }
 .inv-meta p { font-size: .9rem; margin-bottom: .3rem; }
 .invoice-notes { margin-top: 1rem; color: var(--muted); font-size: .9rem; }
+
+.entity-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-bottom: .9rem;
+}
+
+.detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: .7rem;
+  margin: .75rem 0 1rem;
+}
+
+.meta-chip {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .55rem .7rem;
+}
+
+.meta-chip .muted-text {
+  font-size: .75rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.meta-chip strong {
+  display: block;
+  margin-top: .15rem;
+  font-size: .95rem;
+}
+
+.status-inline-form {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: wrap;
+}
+
+.status-inline-form select {
+  min-width: 160px;
+}
+
+/* ── Timer ───────────────────────────────────────────────────────────────── */
+.timer-active-card {
+  border: 1px solid rgba(79,142,247,.5);
+  background: linear-gradient(180deg, rgba(79,142,247,.12), rgba(79,142,247,.04));
+}
+
+.timer-clock-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .6rem;
+}
+
+.timer-clock {
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--primary);
+}
+
+.pomodoro-wrap {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pomodoro-ring {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+
+.pomodoro-ring-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 10;
+}
+
+.pomodoro-ring-fg {
+  fill: none;
+  stroke: var(--warning);
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-dasharray: 339.292;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset .5s linear;
+}
+
+.badge-running { background: rgba(79,142,247,.2); color: var(--primary); }
+.badge-stopped { background: rgba(245,200,66,.2); color: var(--warning); }
+.badge-saved { background: rgba(48,217,136,.2); color: var(--success); }
+.badge-discarded { background: rgba(136,150,176,.2); color: var(--muted); }
+
+/* ── Calendar ────────────────────────────────────────────────────────────── */
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .8rem;
+  flex-wrap: wrap;
+}
+
+.calendar-legend {
+  display: flex;
+  gap: .9rem;
+  flex-wrap: wrap;
+  margin: .9rem 0;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .85rem;
+  color: var(--muted);
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.calendar-weekdays,
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: .45rem;
+}
+
+.calendar-weekdays {
+  margin-bottom: .45rem;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: .8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.calendar-day {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: 70px;
+  background: var(--bg2);
+  color: var(--text);
+  padding: .4rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-day-empty {
+  background: transparent;
+  border: none;
+  cursor: default;
+}
+
+.calendar-day-num {
+  display: block;
+  font-weight: 700;
+  font-size: .9rem;
+}
+
+.calendar-day-meta {
+  display: block;
+  font-size: .75rem;
+  color: var(--muted);
+  margin-top: .25rem;
+}
+
+.day-free { background: rgba(48,217,136,.12); }
+.day-light { background: rgba(245,200,66,.14); }
+.day-busy { background: rgba(240,128,48,.16); }
+.day-blocked {
+  background: rgba(242,92,92,.18);
+  text-decoration: line-through;
+}
 
 /* ── Empty state ──────────────────────────────────────────────────────────── */
 .empty-state { text-align: center; padding: 2.5rem 1rem; }

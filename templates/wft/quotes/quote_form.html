@@ -4,6 +4,7 @@
 {% block content %}
 <a class="back-link" href="{{ url_for('wft.quotes') }}">← Back to Quotes</a>
 <h1 class="page-title">{{ 'Edit Quote' if quote else 'New Quote' }}</h1>
+<p class="subtitle" style="margin-top:-.8rem">Build a clear estimate your client can approve quickly.</p>
 
 <div class="card">
   <form method="POST" id="quote-form">
@@ -45,7 +46,8 @@
       </label>
     </div>
 
-    <h3 style="margin:.75rem 0 .5rem">Line Items</h3>
+    <h3 style="margin:.75rem 0 .35rem">Line Items</h3>
+    <p class="muted-text" style="margin-bottom:.5rem">Use one row per deliverable or phase. Total updates automatically.</p>
     <div style="overflow-x:auto">
       <table class="data-table" id="items-table">
         <thead>
@@ -90,6 +92,7 @@
 
     <label style="margin-top:1rem">Notes
       <textarea name="notes" rows="3">{{ quote.notes if quote else '' }}</textarea>
+      <small>Add assumptions, payment timing, or excluded work.</small>
     </label>
 
     <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">{{ 'Save Quote' if quote else 'Create Quote' }}</button>

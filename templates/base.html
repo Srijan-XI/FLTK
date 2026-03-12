@@ -28,12 +28,19 @@
           <a href="{{ url_for('wft.invoices') }}">🧾 Invoices</a>
           <a href="{{ url_for('wft.contracts') }}">📝 Contracts</a>
           <a href="{{ url_for('wft.hours') }}">⏱ Work Hours</a>
+          <a href="{{ url_for('wft.timer') }}">⏱ Live Timer</a>
+          <a href="{{ url_for('wft.calendar') }}">📅 Calendar</a>
           <a href="{{ url_for('wft.expenses') }}">💸 Expenses</a>
           <a href="{{ url_for('wft.tax_estimator') }}">🧮 Tax Estimator</a>
           <a href="{{ url_for('wft.reports') }}">📊 Profitability</a>
-          <a href="{{ url_for('wft.search') }}">🔍 Search</a>
-          <a href="{{ url_for('wft.backup') }}">🗄️ Backup</a>
+        </div>
+      </div>
+      <div class="nav-group" id="system-nav-group">
+        <span class="nav-label" id="system-label">System ▾</span>
+        <div class="dropdown" id="system-dropdown">
           <a href="{{ url_for('wft.settings') }}">⚙️ Settings</a>
+          <div class="dropdown-sep" role="separator" aria-hidden="true"></div>
+          <a href="{{ url_for('wft.backup') }}">🗄️ Backup</a>
         </div>
       </div>
     </nav>
