@@ -17,33 +17,65 @@ A self-hosted web application built with **Flask** that brings together every to
 
 ### 👥 Client Tracker
 - Add, edit, and manage clients with contact info and currency preferences.
-- Dedicated CRM view per client showing linked invoices and hours.
+- Dedicated CRM view per client showing linked invoices, scoped projects, interactions, and pinned notes.
+
+### 📝 Client Notes & Meeting Logs
+- Store rich notes per client with title/content.
+- Pin important notes and search them globally.
 
 ### 🧾 Invoicing
 - Create, view, and manage invoices.
 - Generate and download invoices as **PDF**.
+- Overdue invoice detection with days overdue and reminder drafts.
+- Multi-currency support with manual exchange rate and base-currency totals.
+
+### 💼 Quotes / Estimates
+- Create itemized quotes with tax and expiry date.
+- Track quote status (`draft`, `sent`, `accepted`, `rejected`, `expired`).
+- Convert accepted quotes into invoices in one click.
+
+### 📝 Contracts
+- Create and manage service contracts/NDAs/fixed-price/retainer agreements.
+- Track status (`draft`, `sent`, `signed`).
+- Print and export contract PDFs.
 
 ### ⏱ Work Hours
 - Log billable work hours per client/project.
 - Edit or delete existing entries.
 
+### ⏱ Live Time Tracker
+- Start/stop live sessions with single active-session guard.
+- Optional Pomodoro mode (25-minute countdown + browser notification).
+- Save stopped sessions directly to Work Hours.
+- Export timer sessions to CSV.
+
+### 📅 Availability Calendar
+- Month-view calendar showing free/light/busy/blocked days.
+- Aggregates work hours + scoped project date windows.
+- Add manual blocks (vacation/meeting/holiday/blocked).
+- Filter by status and navigate months without full page reload.
+
 ### 💸 Expense Tracker
 - Record and track project expenses to keep costs visible.
+- Includes category-level breakdown and CSV export support.
 
 ### 🧮 Tax Estimator
 - Estimate tax liability based on earnings and a configurable tax rate.
 
 ### 📊 Profitability Reports
-- View earnings summaries broken down by client, project, and time period.
+- Interactive analytics dashboard with local Chart.js.
+- Income/profit trends, top clients, expense categories, and weekly hours.
 
 ### 🔍 Global Search
-- Search across clients, invoices, and work hours from the navbar.
+- Search across clients, invoices, quotes, contracts, notes, expenses, work hours, and SDLC data.
 
 ### 🗄️ Backup & Restore
-- Export all your data as a JSON backup and restore it at any time.
+- Export all app data as ZIP and restore at any time.
+- Includes timer sessions, calendar blocks, notes, quotes, contracts, and SDLC data.
 
 ### ⚙️ Settings
 - Set your name, business name, default hourly rate, working hours per day, and preferred currency.
+- Configure late fee rate used in overdue invoice calculations.
 
 ---
 
@@ -66,10 +98,17 @@ FreelancerToolkit/
 ├── app.py                  # Flask app entry point
 ├── requirements.txt
 ├── data/                   # JSON data store
+│   ├── .gitkeep
 │   ├── clients.json
+│   ├── contracts.json
+│   ├── quotes.json
 │   ├── invoices.json
+│   ├── timer_sessions.json
+│   ├── calendar_blocks.json
 │   ├── workhours.json
-│   └── settings.json
+│   ├── sdlc_templates.json
+│   ├── settings.json
+│   └── ... (additional JSON files auto-created as features are used)
 ├── modules/
 │   ├── drp/                # Deadline Predictor module
 │   │   ├── predictor.py
@@ -83,11 +122,69 @@ FreelancerToolkit/
 │   ├── home.html
 │   ├── drp/
 │   └── wft/
+│       ├── calendar.html
+│       ├── clients/
+│       │   ├── clients.html
+│       │   ├── client_notes.html
+│       │   ├── crm_client.html
+│       │   └── edit_client.html
+│       ├── contracts/
+│       │   ├── contracts.html
+│       │   ├── contract_detail.html
+│       │   ├── contract_form.html
+│       │   └── contract_print.html
+│       ├── finance/
+│       │   ├── expenses.html
+│       │   ├── reports.html
+│       │   └── tax.html
+│       ├── hours/
+│       │   ├── edit_hours.html
+│       │   └── hours.html
+│       ├── invoices/
+│       │   ├── invoices.html
+│       │   ├── invoice_detail.html
+│       │   ├── invoice_form.html
+│       │   ├── invoice_pdf.html
+│       │   ├── invoice_reminder.html
+│       │   └── overdue.html
+│       ├── proposals/
+│       │   ├── templates.html
+│       │   └── template_detail.html
+│       ├── quotes/
+│       │   ├── quotes.html
+│       │   ├── quote_detail.html
+│       │   ├── quote_form.html
+│       │   └── quote_print.html
+│       ├── sdlc/
+│       │   ├── scoped_projects.html
+│       │   ├── scoped_project_detail.html
+│       │   ├── scoped_project_form.html
+│       │   ├── scoped_project_print.html
+│       │   ├── sdlc_templates.html
+│       │   ├── sdlc_template_detail.html
+│       │   ├── sdlc_template_form.html
+│       │   └── sdlc_template_print.html
+│       ├── timer.html
+│       └── system/
+│           ├── backup.html
+│           ├── search.html
+│           └── settings.html
 ├── static/
+│   ├── js/
+│   │   └── chart.umd.min.js
 │   └── css/
 │       └── style.css
 └── tests/
-    └── test_predictor.py
+    ├── test_predictor.py
+    ├── test_analytics.py
+    ├── test_overdue.py
+    ├── test_multicurrency.py
+    ├── test_client_notes.py
+    ├── test_quotes.py
+    ├── test_contracts.py
+    ├── test_timer.py
+    ├── test_calendar.py
+    └── test_wft_sdlc.py
 ```
 
 ---
@@ -157,6 +254,18 @@ All other settings (name, currency, hourly rate, etc.) are configurable from the
 
 ```bash
 pytest tests/
+```
+
+For faster targeted checks while developing:
+
+```bash
+pytest tests/test_timer.py tests/test_calendar.py
+```
+
+For quotes/contracts + finance checks:
+
+```bash
+pytest tests/test_quotes.py tests/test_contracts.py tests/test_overdue.py tests/test_multicurrency.py
 ```
 
 ---
