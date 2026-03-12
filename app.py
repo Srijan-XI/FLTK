@@ -1,7 +1,7 @@
+import logging
 import os
+
 from flask import Flask, render_template
-from modules.drp import drp_bp
-from modules.wft import wft_bp
 
 try:
     from dotenv import load_dotenv
@@ -9,8 +9,29 @@ try:
 except ImportError:
     pass
 
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s: %(message)s",
+)
+log = logging.getLogger(__name__)
+
+# ── Flask app ─────────────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "fltk-dev-secret-key")
+
+_secret = os.environ.get("SECRET_KEY", "")
+_debug = os.environ.get("FLASK_DEBUG", "1") == "1"
+
+if not _secret and not _debug:
+    raise RuntimeError(
+        "SECRET_KEY environment variable must be set in production. "
+        "Set FLASK_DEBUG=1 to suppress this check during local development."
+    )
+
+app.secret_key = _secret or "fltk-dev-secret-do-not-use-in-prod"
+
+from modules.drp import drp_bp   # noqa: E402
+from modules.wft import wft_bp   # noqa: E402
 
 app.register_blueprint(drp_bp)
 app.register_blueprint(wft_bp)
@@ -26,4 +47,4 @@ def home():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=_debug)

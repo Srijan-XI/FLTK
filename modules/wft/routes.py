@@ -999,17 +999,10 @@ def update_quote_status(quote_id):
 
 @wft_bp.route("/quotes/<int:quote_id>/convert", methods=["POST"])
 def convert_quote(quote_id):
-    quote = h.get_quote(quote_id)
-    if not quote:
-        flash("Quote not found.", "error")
-        return redirect(url_for("wft.quotes"))
-    if quote.get("status") != "accepted":
-        flash("Only accepted quotes can be converted to invoices.", "error")
-        return redirect(url_for("wft.quote_detail", quote_id=quote_id))
-
-    invoice = h.convert_quote_to_invoice(quote_id)
-    if not invoice:
-        flash("Unable to convert quote to invoice.", "error")
+    try:
+        invoice = h.convert_quote_to_invoice(quote_id)
+    except ValueError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("wft.quote_detail", quote_id=quote_id))
 
     flash(f"Invoice {invoice['invoice_number']} created.", "success")

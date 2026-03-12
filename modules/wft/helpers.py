@@ -4,13 +4,18 @@ Covers: invoice generation, client tracker, workhour analytics, proposal templat
 """
 
 import json
+import logging
 import os
 import calendar
+import tempfile
 from datetime import date, datetime, timedelta
+
+log = logging.getLogger(__name__)
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 CLIENT_NOTES_FILE = "client_notes.json"
 CONTRACT_FILE = "contracts.json"
+EXPENSES_FILE = "expenses.json"
 QUOTE_FILE = "quotes.json"
 TIMER_FILE = "timer_sessions.json"
 CALENDAR_FILE = "calendar_blocks.json"
@@ -28,22 +33,59 @@ BLOCK_TYPES = ["blocked", "vacation", "meeting", "holiday"]
 
 
 def _load(filename: str) -> list:
+    """Load a JSON list from *filename* inside DATA_DIR.
+
+    Returns an empty list when the file does not exist or is empty.
+    Raises ``ValueError`` if the file exists but contains invalid JSON so the
+    caller knows data may be corrupt rather than silently getting an empty list.
+    """
     path = os.path.join(DATA_DIR, filename)
     if not os.path.exists(path):
         return []
     try:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data if isinstance(data, list) else []
-    except (json.JSONDecodeError, IOError):
+            raw = f.read().strip()
+        if not raw:
+            return []
+        data = json.loads(raw)
+        if not isinstance(data, list):
+            log.warning("_load: %s contained non-list JSON — treating as []", filename)
+            return []
+        return data
+    except json.JSONDecodeError as exc:
+        log.error(
+            "_load: corrupt JSON in '%s': %s — file NOT overwritten, fix manually.",
+            path, exc,
+        )
+        raise ValueError(
+            f"Data file '{filename}' is corrupt. "
+            "Please restore from a backup or delete the file to reset."
+        ) from exc
+    except IOError as exc:
+        log.warning("_load: cannot read '%s': %s", path, exc)
         return []
 
 
 def _save(filename: str, data: list):
+    """Atomically write *data* as JSON to *filename* inside DATA_DIR.
+
+    Writes to a temporary file first, then renames it over the target so a
+    crash or disk-full error never leaves the target file truncated/empty.
+    """
     path = os.path.join(DATA_DIR, filename)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    dir_ = os.path.dirname(path)
+    fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, path)  # atomic on POSIX and Windows
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -1084,9 +1126,25 @@ def delete_quote(quote_id: int) -> bool:
 
 
 def convert_quote_to_invoice(quote_id: int) -> dict | None:
+    """Convert an *accepted* quote into an invoice.
+
+    Raises ``ValueError`` if the quote does not exist, has already been
+    converted, or is not in ``'accepted'`` status — preventing invoices from
+    being created out of draft or rejected quotes.
+    """
     quote = get_quote(quote_id)
-    if not quote or quote.get("converted_invoice_id"):
-        return None
+    if not quote:
+        raise ValueError(f"Quote {quote_id} not found.")
+    if quote.get("converted_invoice_id"):
+        raise ValueError(
+            f"Quote {quote.get('quote_number', quote_id)} has already been converted "
+            f"to invoice #{quote['converted_invoice_id']}."
+        )
+    if quote.get("status") != "accepted":
+        raise ValueError(
+            f"Only accepted quotes can be converted to invoices "
+            f"(current status: '{quote.get('status', 'unknown')}')."
+        )
 
     invoice_items = [
         {
@@ -1720,12 +1778,12 @@ EXPENSE_CATEGORIES = [
 
 
 def get_expenses() -> list:
-    return _load("expenses.json")
+    return _load(EXPENSES_FILE)
 
 
 def add_expense(title: str, amount: float, category: str = "Other",
                expense_date: str = "", notes: str = "") -> dict:
-    expenses = _load("expenses.json")
+    expenses = _load(EXPENSES_FILE)
     entry = {
         "id": max((e["id"] for e in expenses), default=0) + 1,
         "title": title,
@@ -1735,14 +1793,14 @@ def add_expense(title: str, amount: float, category: str = "Other",
         "notes": notes,
     }
     expenses.append(entry)
-    _save("expenses.json", expenses)
+    _save(EXPENSES_FILE, expenses)
     return entry
 
 
 def update_expense(expense_id: int, title: str, amount: float,
                    category: str = "Other", expense_date: str = "",
                    notes: str = ""):
-    expenses = _load("expenses.json")
+    expenses = _load(EXPENSES_FILE)
     for e in expenses:
         if e["id"] == expense_id:
             e["title"] = title
@@ -1751,25 +1809,27 @@ def update_expense(expense_id: int, title: str, amount: float,
             e["date"] = expense_date or e["date"]
             e["notes"] = notes
             break
-    _save("expenses.json", expenses)
+    _save(EXPENSES_FILE, expenses)
 
 
 def delete_expense(expense_id: int):
-    expenses = [e for e in _load("expenses.json") if e["id"] != expense_id]
-    _save("expenses.json", expenses)
+    expenses = [e for e in _load(EXPENSES_FILE) if e["id"] != expense_id]
+    _save(EXPENSES_FILE, expenses)
 
 
 def get_expense_summary() -> dict:
-    expenses = _load("expenses.json")
-    total = round(sum(e["amount"] for e in expenses), 2)
+    expenses = _load(EXPENSES_FILE)
+    total = round(sum(float(e.get("amount", 0) or 0) for e in expenses), 2)
     by_category: dict = {}
     for e in expenses:
         cat = e.get("category", "Other")
-        by_category[cat] = round(by_category.get(cat, 0) + e["amount"], 2)
+        amt = float(e.get("amount", 0) or 0)
+        by_category[cat] = round(by_category.get(cat, 0) + amt, 2)
     today = date.today()
     this_month = today.isoformat()[:7]
     month_total = round(sum(
-        e["amount"] for e in expenses if e.get("date", "")[:7] == this_month
+        float(e.get("amount", 0) or 0)
+        for e in expenses if e.get("date", "")[:7] == this_month
     ), 2)
     return {"total": total, "by_category": by_category, "month_total": month_total}
 
@@ -1878,10 +1938,13 @@ def search_client_notes(query: str) -> list:
 
 
 def get_upcoming_followups() -> list:
-    """Return interactions with a follow_up date >= today, sorted by date."""
+    """Return interactions with a follow_up date >= today, sorted by date.
+
+    Uses ``get_clients()`` so any normalisation applied there is honoured.
+    """
     today = date.today().isoformat()
     interactions = _load("crm_interactions.json")
-    clients = {c["id"]: c["name"] for c in _load("clients.json")}
+    clients = {c["id"]: c["name"] for c in get_clients()}
     due = [
         {**i, "client_name": clients.get(i["client_id"], "Unknown")}
         for i in interactions
@@ -1977,33 +2040,41 @@ def global_search(query: str) -> dict:
 # ── Profitability Report ──────────────────────────────────────────────────────
 
 def profitability_report() -> list:
-    """Per-client: total billed, total paid, hours logged, effective rate."""
+    """Per-client: total billed, total paid, hours logged, effective rate.
+
+    All monetary/time values are cast defensively so a ``null``/missing field
+    in a restored data file does not crash the /reports page.
+    """
     invoices = _load("invoices.json")
     workhours = _load("workhours.json")
     clients = _load("clients.json")
 
-    client_names = {c["name"] for c in clients}
+    client_names = {c["name"] for c in clients if c.get("name")}
     # Also include clients from invoices/hours who may not be in clients.json
     all_names = client_names.union(
-        {i["client_name"] for i in invoices},
-        {e["client"] for e in workhours},
+        {i["client_name"] for i in invoices if i.get("client_name")},
+        {e["client"] for e in workhours if e.get("client")},
     )
 
     rows = []
     for name in sorted(all_names):
         client_invoices = [i for i in invoices if i.get("client_name") == name]
-        total_billed = round(sum(i["total"] for i in client_invoices), 2)
+        total_billed = round(sum(
+            float(i.get("total", 0) or 0) for i in client_invoices
+        ), 2)
         total_paid = round(sum(
-            i["total"] for i in client_invoices if i.get("status") == "paid"
+            float(i.get("total", 0) or 0)
+            for i in client_invoices if i.get("status") == "paid"
         ), 2)
         total_hours = round(sum(
-            e["hours"] for e in workhours if e.get("client") == name
+            float(e.get("hours", 0) or 0)
+            for e in workhours if e.get("client") == name
         ), 2)
         # Effective rate = paid / hours
         eff_rate = round(total_paid / total_hours, 2) if total_hours > 0 else 0
         # Budget hours from invoice line items
         budgeted_hours = round(sum(
-            item.get("hours", 0)
+            float(item.get("hours", 0) or 0)
             for inv in client_invoices
             for item in inv.get("items", [])
         ), 2)
