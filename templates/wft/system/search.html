@@ -148,6 +148,69 @@
 </div>
 {% endif %}
 
+{% if results.notes %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>📝 Notes ({{ results.notes | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Client</th><th>Title</th><th>Updated</th><th></th></tr></thead>
+    <tbody>
+      {% for note in results.notes %}
+      <tr>
+        <td>{{ note.client_name }}</td>
+        <td>
+          <strong>{{ note.title }}</strong>
+          {% if note.content %}<br><small class="muted-text">{{ note.content[:120] ~ ('…' if note.content|length > 120 else '') }}</small>{% endif %}
+        </td>
+        <td>{{ note.updated }}</td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.client_notes', client_id=note.client_id) }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if results.quotes %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>💼 Quotes ({{ results.quotes | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Quote #</th><th>Client</th><th>Title</th><th>Total</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for quote in results.quotes %}
+      <tr>
+        <td>{{ quote.quote_number }}</td>
+        <td>{{ quote.client_name }}</td>
+        <td>{{ quote.title }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.total) }}</td>
+        <td><span class="badge badge-{{ quote.status }}">{{ quote.status }}</span></td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.quote_detail', quote_id=quote.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if results.contracts %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>📝 Contracts ({{ results.contracts | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Title</th><th>Type</th><th>Client</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      {% for contract in results.contracts %}
+      <tr>
+        <td>{{ contract.title }}</td>
+        <td>{{ contract.contract_type }}</td>
+        <td>{{ contract.client_name }}</td>
+        <td><span class="badge badge-{{ contract.status }}">{{ contract.status }}</span></td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.contract_detail', contract_id=contract.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 {% if total == 0 %}
 <div class="empty-state">
   <div class="empty-icon">🔍</div>

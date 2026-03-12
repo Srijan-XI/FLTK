@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Quote' if quote else 'New Quote' }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.quotes') }}">← Back to Quotes</a>
+<h1 class="page-title">{{ 'Edit Quote' if quote else 'New Quote' }}</h1>
+
+<div class="card">
+  <form method="POST" id="quote-form">
+    <div class="form-row">
+      <label>Client
+        <select name="client_id" id="quote-client-id">
+          <option value="">— Select client —</option>
+          {% for c in clients %}
+          {% set selected_client_id = quote.client_id if quote else (prefill_client.id if prefill_client else None) %}
+          <option value="{{ c.id }}" data-name="{{ c.name }}" {% if selected_client_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Client Name *
+        <input type="text" name="client_name" id="quote-client-name" required value="{{ quote.client_name if quote else (prefill_client.name if prefill_client else '') }}" />
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Title *
+        <input type="text" name="title" required value="{{ quote.title if quote else '' }}" placeholder="Website redesign quote" />
+      </label>
+      <label>Expiry Date
+        <input type="date" name="expiry_date" value="{{ quote.expiry_date if quote else '' }}" />
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Currency
+        <select name="currency" id="currency-select">
+          {% set selected_currency = quote.currency if quote else cfg.currency %}
+          {% for code, sym in currencies.items() %}
+          <option value="{{ code }}" {% if code == selected_currency %}selected{% endif %}>{{ sym }} {{ code }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Tax Rate (%)
+        <input type="number" name="tax_rate" id="tax-rate" min="0" max="100" step="0.1" value="{{ quote.tax_rate if quote else 0 }}" />
+      </label>
+    </div>
+
+    <h3 style="margin:.75rem 0 .5rem">Line Items</h3>
+    <div style="overflow-x:auto">
+      <table class="data-table" id="items-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Qty</th>
+            <th>Rate (<span id="cur-sym">{{ quote.currency_symbol if quote else cfg.currency_symbol }}</span>)</th>
+            <th>Amount</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="items-body">
+          {% if quote and quote.items %}
+            {% for item in quote.items %}
+            <tr>
+              <td><input type="text" name="description" value="{{ item.description }}" required /></td>
+              <td><input type="number" name="qty" min="0" step="0.1" class="qty-inp" value="{{ item.qty }}" /></td>
+              <td><input type="number" name="rate" min="0" step="0.01" class="rate-inp" value="{{ item.rate }}" /></td>
+              <td class="amount-cell">{{ "%.2f"|format(item.amount) }}</td>
+              <td><button type="button" class="btn btn-danger btn-sm remove-row">✕</button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td><input type="text" name="description" required /></td>
+              <td><input type="number" name="qty" min="0" step="0.1" class="qty-inp" /></td>
+              <td><input type="number" name="rate" min="0" step="0.01" class="rate-inp" /></td>
+              <td class="amount-cell">—</td>
+              <td><button type="button" class="btn btn-danger btn-sm remove-row">✕</button></td>
+            </tr>
+          {% endif %}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="3" style="text-align:right; color:var(--muted)">Subtotal</td><td id="subtotal-cell">—</td><td></td></tr>
+          <tr id="tax-row" style="display:none"><td colspan="3" style="text-align:right; color:var(--muted)">Tax (<span id="tax-pct">0</span>%)</td><td id="tax-cell">—</td><td></td></tr>
+          <tr class="total-row"><td colspan="3" style="text-align:right"><strong>Total</strong></td><td id="total-cell"><strong>—</strong></td><td></td></tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <button type="button" class="btn btn-secondary" id="add-row" style="margin-top:.5rem">+ Add Line</button>
+
+    <label style="margin-top:1rem">Notes
+      <textarea name="notes" rows="3">{{ quote.notes if quote else '' }}</textarea>
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">{{ 'Save Quote' if quote else 'Create Quote' }}</button>
+  </form>
+</div>
+
+<script>
+  const CURRENCY_SYMBOLS = {{ currencies | tojson }};
+
+  function getCurSym() {
+    const sel = document.getElementById('currency-select');
+    return CURRENCY_SYMBOLS[sel.value] || '$';
+  }
+
+  function updateRowAmount(row) {
+    const qty = parseFloat(row.querySelector('.qty-inp').value) || 0;
+    const rate = parseFloat(row.querySelector('.rate-inp').value) || 0;
+    row.querySelector('.amount-cell').textContent = (qty * rate).toFixed(2);
+    updateTotals();
+  }
+
+  function updateTotals() {
+    const sym = getCurSym();
+    document.getElementById('cur-sym').textContent = sym;
+    let subtotal = 0;
+    document.querySelectorAll('#items-body tr').forEach(row => {
+      subtotal += parseFloat(row.querySelector('.amount-cell').textContent) || 0;
+    });
+    const tax = parseFloat(document.getElementById('tax-rate').value) || 0;
+    const taxAmt = subtotal * tax / 100;
+    document.getElementById('subtotal-cell').textContent = sym + subtotal.toFixed(2);
+    document.getElementById('tax-pct').textContent = tax;
+    document.getElementById('tax-cell').textContent = sym + taxAmt.toFixed(2);
+    document.getElementById('tax-row').style.display = tax > 0 ? '' : 'none';
+    document.getElementById('total-cell').innerHTML = '<strong>' + sym + (subtotal + taxAmt).toFixed(2) + '</strong>';
+  }
+
+  document.getElementById('items-body').addEventListener('input', (e) => {
+    const row = e.target.closest('tr');
+    if (row) updateRowAmount(row);
+  });
+
+  document.getElementById('currency-select').addEventListener('change', updateTotals);
+  document.getElementById('tax-rate').addEventListener('input', updateTotals);
+
+  document.getElementById('add-row').addEventListener('click', () => {
+    const body = document.getElementById('items-body');
+    const row = body.querySelector('tr').cloneNode(true);
+    row.querySelectorAll('input').forEach(inp => inp.value = '');
+    row.querySelector('.amount-cell').textContent = '—';
+    body.appendChild(row);
+  });
+
+  document.getElementById('items-body').addEventListener('click', (e) => {
+    if (!e.target.classList.contains('remove-row')) return;
+    const rows = document.querySelectorAll('#items-body tr');
+    if (rows.length > 1) {
+      e.target.closest('tr').remove();
+      updateTotals();
+    }
+  });
+
+  const clientSelect = document.getElementById('quote-client-id');
+  const clientName = document.getElementById('quote-client-name');
+  clientSelect.addEventListener('change', () => {
+    const opt = clientSelect.options[clientSelect.selectedIndex];
+    if (opt && opt.dataset.name && !clientName.value) {
+      clientName.value = opt.dataset.name;
+    }
+  });
+
+  document.querySelectorAll('#items-body tr').forEach(updateRowAmount);
+  updateTotals();
+</script>
+{% endblock %}

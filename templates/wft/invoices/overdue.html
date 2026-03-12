@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Overdue Invoices{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">⚠ Overdue Invoices</h1>
+  <a class="btn btn-secondary" href="{{ url_for('wft.invoices') }}">← Back to Invoices</a>
+</div>
+
+{% if overdue %}
+<div class="card" style="padding:0; overflow:hidden; margin-top:1rem;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>Due Date</th>
+        <th>Days Overdue</th>
+        <th>Late Fee</th>
+        <th>Amount</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in overdue %}
+      <tr>
+        <td>{{ inv.invoice_number }}</td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.due_date }}</td>
+        <td><span class="danger">{{ inv.days_overdue }} days</span></td>
+        <td>{{ inv.get('currency_symbol', cfg.currency_symbol) }}{{ "%.2f"|format(inv.late_fee_amount) }}</td>
+        <td>{{ inv.get('currency_symbol', cfg.currency_symbol) }}{{ "%.2f"|format(inv.total) }}</td>
+        <td class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">View</a>
+          <a class="btn btn-danger btn-sm" href="{{ url_for('wft.invoice_reminder', inv_id=inv.id) }}">Reminder</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">✅</div>
+    <p>No overdue invoices right now.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -65,6 +65,13 @@
     </tfoot>
   </table>
 
+  {% if inv.get('exchange_rate') and inv.get('base_currency') and inv.get('currency') != inv.get('base_currency') %}
+  <p class="muted-text" style="margin-top:.5rem">
+    Total in base currency: {{ inv.get('display_total') }}
+    (rate: {{ inv.get('exchange_rate') }})
+  </p>
+  {% endif %}
+
   {% if inv.notes %}
   <div class="invoice-notes">
     <strong>Notes:</strong> {{ inv.notes }}

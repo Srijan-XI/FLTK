@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ quote.quote_number }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; margin: 28px; line-height: 1.5; }
+    h1, h2 { color: #1f4fbf; margin-bottom: 8px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #d8dce5; padding: 8px; text-align: left; }
+    th { background: #f3f5fb; }
+    .meta { color: #555; margin-bottom: 16px; }
+    .right { text-align: right; }
+    .sign { margin-top: 48px; display: flex; justify-content: space-between; gap: 24px; }
+    .line { border-top: 1px solid #555; margin-top: 36px; padding-top: 6px; width: 48%; }
+  </style>
+</head>
+<body>
+  <h1>Quote {{ quote.quote_number }}</h1>
+  <p class="meta">Client: {{ quote.client_name }} | Issued: {{ quote.issue_date }} | Valid Until: {{ quote.expiry_date or 'N/A' }}</p>
+  <p><strong>{{ quote.title }}</strong></p>
+
+  <table>
+    <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+    <tbody>
+      {% for item in quote.items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.qty }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(item.rate) }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(item.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3" class="right">Subtotal</td><td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.subtotal) }}</td></tr>
+      <tr><td colspan="3" class="right">Tax ({{ quote.tax_rate }}%)</td><td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.tax_amount) }}</td></tr>
+      <tr><td colspan="3" class="right"><strong>Total</strong></td><td><strong>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.total) }}</strong></td></tr>
+    </tfoot>
+  </table>
+
+  <p style="margin-top:12px"><em>This quote is valid until {{ quote.expiry_date or 'N/A' }}.</em></p>
+  {% if quote.notes %}<p><strong>Notes:</strong> {{ quote.notes }}</p>{% endif %}
+
+  <div class="sign">
+    <div class="line">Freelancer Signature</div>
+    <div class="line">Client Signature</div>
+  </div>
+</body>
+</html>

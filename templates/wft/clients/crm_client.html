@@ -148,6 +148,35 @@
   {% endif %}
 </div>
 
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header-row">
+    <h2>📝 Pinned Notes</h2>
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.client_notes', client_id=client.id) }}">View all notes</a>
+  </div>
+  {% if pinned_notes %}
+  <div class="history-list">
+    {% for note in pinned_notes %}
+    <div class="card history-card" style="border-left:4px solid var(--warning)">
+      <div class="history-row">
+        <div>
+          <div class="history-meta">
+            <span class="badge" style="background:rgba(245,158,11,.2);color:var(--warning)">Pinned</span>
+            <strong>{{ note.title }}</strong>
+            <span class="muted-text">Updated {{ note.updated }}</span>
+          </div>
+          <p style="margin-top:.35rem">{{ (note.content[:200] ~ ('…' if note.content|length > 200 else '')) if note.content else '' }}</p>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state" style="padding:1.25rem">
+    <p>No pinned notes yet for this client.</p>
+  </div>
+  {% endif %}
+</div>
+
 <!-- Interaction timeline -->
 <div class="card" style="margin-top:1.25rem">
   <div class="card-header-row">

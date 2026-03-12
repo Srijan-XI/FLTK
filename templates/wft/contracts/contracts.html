@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Contracts{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📝 Contracts</h1>
+  <a class="btn btn-primary" href="{{ url_for('wft.new_contract') }}">+ New Contract</a>
+</div>
+
+<div class="invoice-summary-bar">
+  <div class="isb-item"><span class="isb-val">{{ stats.total }}</span><span class="isb-lbl">Total</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val">{{ stats.draft }}</span><span class="isb-lbl">Draft</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val warning">{{ stats.sent }}</span><span class="isb-lbl">Sent</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val success">{{ stats.signed }}</span><span class="isb-lbl">Signed</span></div>
+</div>
+
+{% if contracts %}
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Client</th>
+        <th>Value</th>
+        <th>Status</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for contract in contracts %}
+      <tr>
+        <td>{{ contract.title }}</td>
+        <td>{{ contract.contract_type }}</td>
+        <td>{{ contract.client_name }}</td>
+        <td>{{ contract.currency_symbol }}{{ "%.2f"|format(contract.project_value) }}</td>
+        <td><span class="badge badge-{{ contract.status }}">{{ contract.status }}</span></td>
+        <td>{{ contract.created_date }}</td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.contract_detail', contract_id=contract.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">📝</div>
+    <p>No contracts yet.</p>
+    <a class="btn btn-primary" href="{{ url_for('wft.new_contract') }}">Create your first contract →</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

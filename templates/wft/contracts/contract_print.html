@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ contract.title }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; margin: 28px; line-height: 1.55; }
+    h1, h2 { color: #1f4fbf; margin-bottom: 8px; }
+    .meta { color: #555; margin-bottom: 16px; }
+    .section { margin-top: 16px; }
+    .sign { margin-top: 48px; display: flex; justify-content: space-between; gap: 24px; }
+    .line { border-top: 1px solid #555; margin-top: 36px; padding-top: 6px; width: 48%; }
+  </style>
+</head>
+<body>
+  <h1>{{ contract.title }}</h1>
+  <p class="meta">{{ contract.contract_type }} | Date: {{ contract.created_date }}</p>
+
+  <div class="section">
+    <h2>1. Parties</h2>
+    <p>Freelancer: <strong>{{ contract.freelancer_name }}</strong> ({{ contract.freelancer_business }})</p>
+    <p>Client: <strong>{{ contract.client_name }}</strong> {% if contract.client_email %}({{ contract.client_email }}){% endif %}</p>
+  </div>
+
+  <div class="section">
+    <h2>2. Scope and Deliverables</h2>
+    <p style="white-space:pre-line">{{ contract.project_description or '-' }}</p>
+  </div>
+
+  <div class="section">
+    <h2>3. Payment Terms</h2>
+    <p>Project Value: {{ contract.currency_symbol }}{{ "%.2f"|format(contract.project_value) }}</p>
+    <p style="white-space:pre-line">{{ contract.payment_terms or '-' }}</p>
+    <p>Late Fee: {{ contract.late_fee_percent }}% per month</p>
+  </div>
+
+  <div class="section">
+    <h2>4. Timeline and Revisions</h2>
+    <p>Start Date: {{ contract.start_date or '-' }} | End Date: {{ contract.end_date or '-' }}</p>
+    <p>Revision Limit: {{ contract.revision_limit }}</p>
+  </div>
+
+  <div class="section">
+    <h2>5. Legal Terms</h2>
+    <p>IP Ownership: {{ contract.ip_ownership }}</p>
+    <p>Confidentiality: {{ 'Included' if contract.confidentiality else 'Not Included' }}</p>
+    <p>Governing Law: {{ contract.governing_law or '-' }}</p>
+    {% if contract.custom_clauses %}
+    <p style="white-space:pre-line">{{ contract.custom_clauses }}</p>
+    {% endif %}
+  </div>
+
+  <div class="sign">
+    <div class="line">Freelancer Signature</div>
+    <div class="line">Client Signature</div>
+  </div>
+</body>
+</html>

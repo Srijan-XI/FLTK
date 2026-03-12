@@ -11,13 +11,13 @@
 {% if summary %}
 <div class="invoice-summary-bar">
   <div class="isb-item">
-    <span class="isb-val success">${{ "%.2f"|format(summary.total_paid) }}</span>
+    <span class="isb-val success">{{ summary.currency_symbol }}{{ "%.2f"|format(summary.total_paid) }}</span>
     <span class="isb-lbl">Paid</span>
   </div>
   <div class="isb-sep"></div>
   <div class="isb-item">
     <span class="isb-val {% if summary.total_outstanding > 0 %}warning{% else %}muted{% endif %}">
-      ${{ "%.2f"|format(summary.total_outstanding) }}
+      {{ summary.currency_symbol }}{{ "%.2f"|format(summary.total_outstanding) }}
     </span>
     <span class="isb-lbl">Outstanding</span>
   </div>
@@ -31,6 +31,19 @@
 </div>
 {% endif %}
 
+{% set overdue_rows = invoices | selectattr('is_overdue') | list %}
+{% if overdue_rows %}
+<div class="card overdue-alert" style="margin-top:1rem;">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:.8rem; flex-wrap:wrap;">
+    <div>
+      <strong>Overdue invoices need attention:</strong>
+      <span class="danger">{{ overdue_rows|length }} pending</span>
+    </div>
+    <a class="btn btn-danger btn-sm" href="{{ url_for('wft.overdue_invoices') }}">View Overdue Tracker</a>
+  </div>
+</div>
+{% endif %}
+
 {% if invoices %}
 <div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
   <table class="data-table sortable" id="inv-table">
@@ -40,7 +53,9 @@
         <th data-col="1">Client ↕</th>
         <th data-col="2">Issued ↕</th>
         <th data-col="3">Due ↕</th>
-        <th data-col="4">Total ↕</th>
+        <th data-col="4">Overdue ↕</th>
+        <th data-col="5">Total ↕</th>
+        <th data-col="6">Base ↕</th>
         <th>Status</th>
         <th></th>
       </tr>
@@ -56,10 +71,23 @@
           {% if inv.status != 'paid' and inv.due_date < today %} <span class="badge badge-overdue">OVERDUE</span>
             {% endif %}
         </td>
+        <td>
+          {% if inv.is_overdue %}
+            <span class="danger">{{ inv.days_overdue }}d</span>
+          {% else %}
+            <span class="muted-text">-</span>
+          {% endif %}
+        </td>
         <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.total) }}</td>
+        <td>
+          {{ summary.currency_symbol }}{{ "%.2f"|format(inv.base_total) }} {{ inv.base_currency }}
+        </td>
         <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
         <td>
           <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">View</a>
+          {% if inv.is_overdue %}
+            <a class="btn btn-danger btn-sm" href="{{ url_for('wft.invoice_reminder', inv_id=inv.id) }}">Reminder</a>
+          {% endif %}
         </td>
       </tr>
       {% endfor %}

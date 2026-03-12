@@ -8,6 +8,19 @@ import os
 from datetime import date, datetime
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+CLIENT_NOTES_FILE = "client_notes.json"
+CONTRACT_FILE = "contracts.json"
+QUOTE_FILE = "quotes.json"
+
+CONTRACT_TYPES = [
+    "Service Agreement",
+    "Non-Disclosure Agreement (NDA)",
+    "Fixed-Price Contract",
+    "Retainer Agreement",
+    "Maintenance & Support Contract",
+]
+
+QUOTE_STATUS_OPTIONS = ["draft", "sent", "accepted", "rejected", "expired"]
 
 
 def _load(filename: str) -> list:
@@ -40,6 +53,7 @@ DEFAULT_SETTINGS = {
     "currency_symbol": "$",
     "default_rate": 50.0,
     "working_hours_per_day": 8.0,
+    "late_fee_rate": 1.5,
 }
 
 CURRENCY_OPTIONS = {
@@ -727,6 +741,10 @@ def get_clients() -> list:
     return _load("clients.json")
 
 
+def get_client(client_id: int) -> dict | None:
+    return next((client for client in get_clients() if client.get("id") == client_id), None)
+
+
 def add_client(name: str, email: str, phone: str = "", notes: str = "",
                default_rate: float = 0.0, company: str = "",
                currency: str = "", currency_symbol: str = "",
@@ -786,7 +804,8 @@ def get_invoices() -> list:
 
 def create_invoice(client_name: str, items: list[dict], due_date: str,
                    notes: str = "", currency: str = "USD",
-                   currency_symbol: str = "$", tax_rate: float = 0.0) -> dict:
+                   currency_symbol: str = "$", tax_rate: float = 0.0,
+                   exchange_rate: float = 1.0, base_currency: str = "") -> dict:
     """
     items: [{"description": str, "hours": float, "rate": float}, ...]
     """
@@ -798,6 +817,10 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
     subtotal = round(sum(i["amount"] for i in items), 2)
     tax_amount = round(subtotal * tax_rate / 100, 2)
     total = round(subtotal + tax_amount, 2)
+    cfg = get_settings()
+    base_currency = (base_currency or cfg.get("currency", "USD")).upper()
+    exchange_rate = float(exchange_rate or 1.0)
+    total_base = round(total * exchange_rate, 2)
 
     invoice = {
         "id": inv_id,
@@ -812,6 +835,9 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
         "total": total,
         "currency": currency,
         "currency_symbol": currency_symbol,
+        "exchange_rate": exchange_rate,
+        "base_currency": base_currency,
+        "total_base": total_base,
         "status": "unpaid",
         "notes": notes,
     }
@@ -837,14 +863,291 @@ def delete_invoice(inv_id: int):
     _save("invoices.json", invoices)
 
 
+# ── Contracts ───────────────────────────────────────────────────────────────
+
+def get_contracts() -> list:
+    contracts = _load(CONTRACT_FILE)
+    return sorted(contracts, key=lambda item: item.get("created_date", ""), reverse=True)
+
+
+def get_contract(contract_id: int) -> dict | None:
+    return next((contract for contract in _load(CONTRACT_FILE) if contract.get("id") == contract_id), None)
+
+
+def add_contract(**fields) -> dict:
+    contracts = _load(CONTRACT_FILE)
+    cfg = get_settings()
+    client_id = fields.get("client_id")
+    client = get_client(client_id) if client_id else None
+    contract_type = fields.get("contract_type") or CONTRACT_TYPES[0]
+    if contract_type not in CONTRACT_TYPES:
+        contract_type = CONTRACT_TYPES[0]
+
+    created_date = fields.get("created_date") or date.today().isoformat()
+    status = (fields.get("status") or "draft").lower()
+    if status not in {"draft", "sent", "signed"}:
+        status = "draft"
+
+    contract = {
+        "id": max((item.get("id", 0) for item in contracts), default=0) + 1,
+        "title": (fields.get("title") or "Untitled Contract").strip(),
+        "contract_type": contract_type,
+        "client_id": client_id,
+        "client_name": (fields.get("client_name") or (client.get("name") if client else "")).strip(),
+        "client_email": (fields.get("client_email") or (client.get("email") if client else "")).strip(),
+        "project_description": (fields.get("project_description") or "").strip(),
+        "payment_terms": (fields.get("payment_terms") or "").strip(),
+        "project_value": round(float(fields.get("project_value") or 0.0), 2),
+        "currency_symbol": (fields.get("currency_symbol") or cfg.get("currency_symbol", "$")),
+        "start_date": (fields.get("start_date") or "").strip(),
+        "end_date": (fields.get("end_date") or "").strip(),
+        "revision_limit": int(fields.get("revision_limit") or 0),
+        "late_fee_percent": float(fields.get("late_fee_percent") or 0.0),
+        "ip_ownership": (fields.get("ip_ownership") or "client").strip(),
+        "confidentiality": bool(fields.get("confidentiality")),
+        "governing_law": (fields.get("governing_law") or "").strip(),
+        "freelancer_name": (fields.get("freelancer_name") or cfg.get("name", "")).strip(),
+        "freelancer_business": (fields.get("freelancer_business") or cfg.get("business", "")).strip(),
+        "custom_clauses": (fields.get("custom_clauses") or "").strip(),
+        "status": status,
+        "created_date": created_date,
+        "notes": (fields.get("notes") or "").strip(),
+    }
+    contracts.append(contract)
+    _save(CONTRACT_FILE, contracts)
+    return contract
+
+
+def update_contract(contract_id: int, **fields):
+    contracts = _load(CONTRACT_FILE)
+    for contract in contracts:
+        if contract.get("id") != contract_id:
+            continue
+        for key in [
+            "title", "contract_type", "client_id", "client_name", "client_email",
+            "project_description", "payment_terms", "currency_symbol", "start_date",
+            "end_date", "ip_ownership", "governing_law", "freelancer_name",
+            "freelancer_business", "custom_clauses", "notes",
+        ]:
+            if key in fields:
+                value = fields.get(key)
+                contract[key] = value.strip() if isinstance(value, str) else value
+
+        if "project_value" in fields:
+            contract["project_value"] = round(float(fields.get("project_value") or 0.0), 2)
+        if "revision_limit" in fields:
+            contract["revision_limit"] = int(fields.get("revision_limit") or 0)
+        if "late_fee_percent" in fields:
+            contract["late_fee_percent"] = float(fields.get("late_fee_percent") or 0.0)
+        if "confidentiality" in fields:
+            contract["confidentiality"] = bool(fields.get("confidentiality"))
+        if "status" in fields:
+            status = str(fields.get("status") or contract.get("status", "draft")).lower()
+            if status in {"draft", "sent", "signed"}:
+                contract["status"] = status
+        break
+    _save(CONTRACT_FILE, contracts)
+
+
+def delete_contract(contract_id: int):
+    contracts = [contract for contract in _load(CONTRACT_FILE) if contract.get("id") != contract_id]
+    _save(CONTRACT_FILE, contracts)
+
+
+def get_contract_stats() -> dict:
+    contracts = _load(CONTRACT_FILE)
+    return {
+        "total": len(contracts),
+        "draft": sum(1 for item in contracts if item.get("status") == "draft"),
+        "sent": sum(1 for item in contracts if item.get("status") == "sent"),
+        "signed": sum(1 for item in contracts if item.get("status") == "signed"),
+    }
+
+
+# ── Quotes ──────────────────────────────────────────────────────────────────
+
+def _normalize_quote_items(items: list[dict]) -> list[dict]:
+    normalized = []
+    for item in items:
+        description = str(item.get("description", "")).strip()
+        if not description:
+            continue
+        qty = float(item.get("qty", 0) or 0)
+        rate = float(item.get("rate", 0) or 0)
+        amount = round(qty * rate, 2)
+        normalized.append({
+            "description": description,
+            "qty": qty,
+            "rate": rate,
+            "amount": amount,
+        })
+    return normalized
+
+
+def get_quotes() -> list:
+    quotes = _load(QUOTE_FILE)
+    return sorted(quotes, key=lambda item: item.get("issue_date", ""), reverse=True)
+
+
+def get_quote(quote_id: int) -> dict | None:
+    return next((quote for quote in _load(QUOTE_FILE) if quote.get("id") == quote_id), None)
+
+
+def add_quote(client_id: int | None, client_name: str, title: str, items: list[dict], tax_rate: float,
+              currency: str, currency_symbol: str, expiry_date: str, notes: str) -> dict:
+    quotes = _load(QUOTE_FILE)
+    cfg = get_settings()
+    client = get_client(client_id) if client_id else None
+    quote_id = max((item.get("id", 0) for item in quotes), default=0) + 1
+    parsed_items = _normalize_quote_items(items)
+    subtotal = round(sum(item["amount"] for item in parsed_items), 2)
+    tax_rate = float(tax_rate or 0.0)
+    tax_amount = round(subtotal * tax_rate / 100, 2)
+    total = round(subtotal + tax_amount, 2)
+
+    quote = {
+        "id": quote_id,
+        "quote_number": f"QT-{quote_id:03d}",
+        "client_id": client_id,
+        "client_name": (client_name or (client.get("name") if client else "")).strip(),
+        "title": title.strip() or "Untitled Quote",
+        "items": parsed_items,
+        "subtotal": subtotal,
+        "tax_rate": tax_rate,
+        "tax_amount": tax_amount,
+        "total": total,
+        "currency": (currency or cfg.get("currency", "USD")).upper(),
+        "currency_symbol": currency_symbol or cfg.get("currency_symbol", "$"),
+        "status": "draft",
+        "issue_date": date.today().isoformat(),
+        "expiry_date": (expiry_date or "").strip(),
+        "notes": (notes or "").strip(),
+        "converted_invoice_id": None,
+    }
+    quotes.append(quote)
+    _save(QUOTE_FILE, quotes)
+    return quote
+
+
+def update_quote(quote_id: int, **fields):
+    quotes = _load(QUOTE_FILE)
+    for quote in quotes:
+        if quote.get("id") != quote_id:
+            continue
+        if "client_id" in fields:
+            quote["client_id"] = fields.get("client_id")
+        for key in ["client_name", "title", "currency", "currency_symbol", "expiry_date", "notes"]:
+            if key in fields:
+                value = fields.get(key)
+                quote[key] = value.strip() if isinstance(value, str) else value
+
+        if "status" in fields:
+            status = str(fields.get("status") or quote.get("status", "draft")).lower()
+            if status in QUOTE_STATUS_OPTIONS:
+                quote["status"] = status
+
+        if "tax_rate" in fields:
+            quote["tax_rate"] = float(fields.get("tax_rate") or 0.0)
+
+        if "items" in fields:
+            quote["items"] = _normalize_quote_items(fields.get("items") or [])
+
+        subtotal = round(sum(item.get("amount", 0.0) for item in quote.get("items", [])), 2)
+        tax_amount = round(subtotal * float(quote.get("tax_rate", 0.0) or 0.0) / 100, 2)
+        quote["subtotal"] = subtotal
+        quote["tax_amount"] = tax_amount
+        quote["total"] = round(subtotal + tax_amount, 2)
+        break
+    _save(QUOTE_FILE, quotes)
+
+
+def update_quote_status(quote_id: int, status: str):
+    status = (status or "").lower()
+    if status not in QUOTE_STATUS_OPTIONS:
+        return
+    update_quote(quote_id, status=status)
+
+
+def delete_quote(quote_id: int) -> bool:
+    quote = get_quote(quote_id)
+    if not quote:
+        return False
+    if quote.get("converted_invoice_id"):
+        return False
+    quotes = [item for item in _load(QUOTE_FILE) if item.get("id") != quote_id]
+    _save(QUOTE_FILE, quotes)
+    return True
+
+
+def convert_quote_to_invoice(quote_id: int) -> dict | None:
+    quote = get_quote(quote_id)
+    if not quote or quote.get("converted_invoice_id"):
+        return None
+
+    invoice_items = [
+        {
+            "description": item.get("description", ""),
+            "hours": float(item.get("qty", 0) or 0),
+            "rate": float(item.get("rate", 0) or 0),
+        }
+        for item in quote.get("items", [])
+    ]
+    if not invoice_items:
+        return None
+
+    invoice = create_invoice(
+        client_name=quote.get("client_name", "Unknown"),
+        items=invoice_items,
+        due_date=quote.get("expiry_date") or date.today().isoformat(),
+        notes=f"Converted from quote {quote.get('quote_number', '')}. {quote.get('notes', '')}".strip(),
+        currency=quote.get("currency", get_settings().get("currency", "USD")),
+        currency_symbol=quote.get("currency_symbol", get_settings().get("currency_symbol", "$")),
+        tax_rate=float(quote.get("tax_rate", 0.0) or 0.0),
+    )
+
+    quotes = _load(QUOTE_FILE)
+    for item in quotes:
+        if item.get("id") == quote_id:
+            item["converted_invoice_id"] = invoice.get("id")
+            item["status"] = "accepted"
+            break
+    _save(QUOTE_FILE, quotes)
+    return invoice
+
+
+def get_quote_stats() -> dict:
+    quotes = _load(QUOTE_FILE)
+    total = len(quotes)
+    converted = sum(1 for quote in quotes if quote.get("converted_invoice_id"))
+    conversion_rate = round((converted / total) * 100, 2) if total else 0.0
+    return {
+        "total": total,
+        "draft": sum(1 for quote in quotes if quote.get("status") == "draft"),
+        "sent": sum(1 for quote in quotes if quote.get("status") == "sent"),
+        "accepted": sum(1 for quote in quotes if quote.get("status") == "accepted"),
+        "rejected": sum(1 for quote in quotes if quote.get("status") == "rejected"),
+        "expired": sum(1 for quote in quotes if quote.get("status") == "expired"),
+        "conversion_rate": conversion_rate,
+    }
+
+
 def get_earnings_summary() -> dict:
-    """Total paid, total outstanding, hours this week, expenses, net profit."""
+    """Financial summary payload used by dashboard and reports pages."""
     invoices = _load("invoices.json")
     workhours = _load("workhours.json")
     expenses = _load("expenses.json")
+    cfg = get_settings()
 
-    total_paid = round(sum(i["total"] for i in invoices if i.get("status") == "paid"), 2)
-    total_outstanding = round(sum(i["total"] for i in invoices if i.get("status") != "paid"), 2)
+    def normalized_total(inv: dict) -> float:
+        try:
+            if inv.get("total_base") is not None:
+                return float(inv.get("total_base", 0.0) or 0.0)
+            return float(inv.get("total", 0.0) or 0.0) * float(inv.get("exchange_rate", 1.0) or 1.0)
+        except (TypeError, ValueError):
+            return float(inv.get("total", 0.0) or 0.0)
+
+    total_paid = round(sum(normalized_total(i) for i in invoices if i.get("status") == "paid"), 2)
+    total_outstanding = round(sum(normalized_total(i) for i in invoices if i.get("status") != "paid"), 2)
     total_expenses = round(sum(e["amount"] for e in expenses), 2)
     net_profit = round(total_paid - total_expenses, 2)
 
@@ -862,22 +1165,50 @@ def get_earnings_summary() -> dict:
         if i.get("status") != "paid" and i.get("due_date", "9999-12-31") < today.isoformat()
     )
 
-    # Income by month (last 6 months) for charts
-    income_by_month: dict = {}
+    paid_invoices = [i for i in invoices if i.get("status") == "paid"]
+
+    # Income by month (last 12 months)
+    income_by_month: dict[str, float] = {}
+    expense_by_month: dict[str, float] = {}
     for inv in invoices:
         if inv.get("status") == "paid" and inv.get("issue_date"):
             month = inv["issue_date"][:7]
-            income_by_month[month] = round(income_by_month.get(month, 0) + inv["total"], 2)
+            income_by_month[month] = round(income_by_month.get(month, 0) + normalized_total(inv), 2)
 
-    # Income by client for pie chart
-    income_by_client: dict = {}
+    for exp in expenses:
+        month = exp.get("date", "")[:7]
+        if month:
+            expense_by_month[month] = round(expense_by_month.get(month, 0) + exp.get("amount", 0), 2)
+
+    all_months = sorted(set(income_by_month.keys()) | set(expense_by_month.keys()))
+    income_by_month = {m: income_by_month.get(m, 0.0) for m in all_months[-12:]}
+
+    profit_by_month: dict[str, float] = {}
+    for month in all_months[-12:]:
+        profit_by_month[month] = round(income_by_month.get(month, 0.0) - expense_by_month.get(month, 0.0), 2)
+
+    # Income by client (top 10)
+    income_by_client: dict[str, float] = {}
     for inv in invoices:
         if inv.get("status") == "paid":
             name = inv.get("client_name", "Unknown")
-            income_by_client[name] = round(income_by_client.get(name, 0) + inv["total"], 2)
+            income_by_client[name] = round(income_by_client.get(name, 0) + normalized_total(inv), 2)
+    income_by_client = dict(sorted(income_by_client.items(), key=lambda x: -x[1])[:10])
 
-    # Hours by week (last 8 weeks)
-    weekly_hours = _weekly_hours(workhours)
+    # Hours by week (last 12 ISO weeks)
+    weekly_hours = _weekly_hours(workhours, weeks=12, include_year=True)
+
+    # Expense totals by category
+    expense_by_cat: dict[str, float] = {}
+    for exp in expenses:
+        cat = exp.get("category", "Other") or "Other"
+        expense_by_cat[cat] = round(expense_by_cat.get(cat, 0.0) + exp.get("amount", 0.0), 2)
+    expense_by_cat = dict(sorted(expense_by_cat.items(), key=lambda x: -x[1]))
+
+    total_hours_all = round(sum(e.get("hours", 0) for e in workhours), 2)
+    avg_hourly_rate = round(total_paid / total_hours_all, 2) if total_hours_all > 0 else 0.0
+    paid_count = len(paid_invoices)
+    unpaid_count = len(invoices) - paid_count
 
     return {
         "total_paid": total_paid,
@@ -886,9 +1217,15 @@ def get_earnings_summary() -> dict:
         "overdue_count": overdue_count,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
-        "income_by_month": dict(sorted(income_by_month.items())[-6:]),
-        "income_by_client": dict(sorted(income_by_client.items(), key=lambda x: -x[1])[:8]),
+        "income_by_month": income_by_month,
+        "income_by_client": income_by_client,
         "weekly_hours": weekly_hours,
+        "profit_by_month": profit_by_month,
+        "expense_by_cat": expense_by_cat,
+        "avg_hourly_rate": avg_hourly_rate,
+        "paid_count": paid_count,
+        "unpaid_count": unpaid_count,
+        "currency_symbol": cfg.get("currency_symbol", "$"),
     }
 
 
@@ -990,17 +1327,88 @@ def analytics(period: str = "all") -> dict:
     }
 
 
-def _weekly_hours(entries: list) -> list:
-    """Return last 8 ISO-week labels and their hour totals."""
+def _weekly_hours(entries: list, weeks: int = 8, include_year: bool = False) -> list:
+    """Return last N ISO-week labels and their hour totals."""
     by_week: dict = {}
     for e in entries:
         d = date.fromisoformat(e["date"])
         iso = d.isocalendar()
-        label = f"W{iso.week:02d}"
-        by_week[label] = round(by_week.get(label, 0) + e["hours"], 2)
-    # Sort by label (week number) and return last 8
-    sorted_weeks = sorted(by_week.items())[-8:]
-    return [{"week": w, "hours": h} for w, h in sorted_weeks]
+        key = f"{iso.year}-W{iso.week:02d}"
+        by_week[key] = round(by_week.get(key, 0) + e["hours"], 2)
+    sorted_weeks = sorted(by_week.items())[-weeks:]
+    if include_year:
+        return [{"week": w, "hours": h} for w, h in sorted_weeks]
+    return [{"week": w.split("-")[1], "hours": h} for w, h in sorted_weeks]
+
+
+def get_overdue_invoices() -> list:
+    cfg = get_settings()
+    late_fee_rate = float(cfg.get("late_fee_rate", DEFAULT_SETTINGS["late_fee_rate"]))
+    today = date.today()
+    overdue = []
+    for inv in get_invoices():
+        if inv.get("status") == "paid":
+            continue
+        due_date_str = inv.get("due_date")
+        if not due_date_str:
+            continue
+        try:
+            due_date = date.fromisoformat(due_date_str)
+        except ValueError:
+            continue
+        if due_date >= today:
+            continue
+        days_overdue = (today - due_date).days
+        total = float(inv.get("total", 0.0) or 0.0)
+        late_fee_amount = round(total * (late_fee_rate / 100.0) * (days_overdue / 30.0), 2)
+        inv_with_meta = dict(inv)
+        inv_with_meta["days_overdue"] = days_overdue
+        inv_with_meta["late_fee_amount"] = late_fee_amount
+        overdue.append(inv_with_meta)
+    return sorted(overdue, key=lambda item: item.get("days_overdue", 0), reverse=True)
+
+
+def get_reminder_email_draft(invoice: dict) -> str:
+    cfg = get_settings()
+    days_overdue = invoice.get("days_overdue")
+    if days_overdue is None:
+        try:
+            days_overdue = (date.today() - date.fromisoformat(invoice.get("due_date", date.today().isoformat()))).days
+        except ValueError:
+            days_overdue = 0
+    amount = f"{invoice.get('currency_symbol', '$')}{float(invoice.get('total', 0.0)):.2f}"
+    subject = f"Payment Reminder — Invoice {invoice.get('invoice_number', '')}"
+    body = "\n".join([
+        f"Subject: {subject}",
+        "",
+        f"Hi {invoice.get('client_name', 'there')},",
+        "",
+        f"This is a friendly reminder that invoice {invoice.get('invoice_number', '')} for {amount} was due on {invoice.get('due_date', '')} and is now {days_overdue} day(s) overdue.",
+        "",
+        "Please share payment confirmation at your earliest convenience.",
+        "",
+        f"Thank you,",
+        f"{cfg.get('name', '')}",
+    ])
+    return body
+
+
+def get_invoice_display_total(invoice: dict) -> str:
+    cfg = get_settings()
+    inv_currency = (invoice.get("currency") or cfg.get("currency", "USD")).upper()
+    inv_symbol = invoice.get("currency_symbol") or CURRENCY_OPTIONS.get(inv_currency, "")
+    inv_total = float(invoice.get("total", 0.0) or 0.0)
+
+    base_currency = (invoice.get("base_currency") or cfg.get("currency", "USD")).upper()
+    base_symbol = CURRENCY_OPTIONS.get(base_currency, "")
+    exchange_rate = float(invoice.get("exchange_rate", 1.0) or 1.0)
+    total_base = float(invoice.get("total_base", inv_total * exchange_rate) or 0.0)
+
+    inv_text = f"{inv_symbol}{inv_total:,.2f} {inv_currency}".strip()
+    if inv_currency != cfg.get("currency", "USD"):
+        base_text = f"{base_symbol}{total_base:,.2f} {base_currency}".strip()
+        return f"{inv_text}  (≈ {base_text})"
+    return inv_text
 
 
 # ── Proposal Templates ────────────────────────────────────────────────────────
@@ -1181,6 +1589,75 @@ def delete_interaction(interaction_id: int):
     _save("crm_interactions.json", interactions)
 
 
+# ── Client Notes ──────────────────────────────────────────────────────────────
+
+def get_client_notes(client_id: int) -> list:
+    notes = [n for n in _load(CLIENT_NOTES_FILE) if n.get("client_id") == client_id]
+    return sorted(notes, key=lambda n: (bool(n.get("pinned", False)), n.get("updated", "")), reverse=True)
+
+
+def get_client_note(note_id: int) -> dict | None:
+    return next((n for n in _load(CLIENT_NOTES_FILE) if n.get("id") == note_id), None)
+
+
+def add_client_note(client_id: int, title: str, content: str) -> dict:
+    notes = _load(CLIENT_NOTES_FILE)
+    today = date.today().isoformat()
+    note = {
+        "id": max((n["id"] for n in notes), default=0) + 1,
+        "client_id": client_id,
+        "title": title.strip() or "Untitled",
+        "content": content.strip(),
+        "created": today,
+        "updated": today,
+        "pinned": False,
+    }
+    notes.append(note)
+    _save(CLIENT_NOTES_FILE, notes)
+    return note
+
+
+def update_client_note(note_id: int, title: str, content: str):
+    notes = _load(CLIENT_NOTES_FILE)
+    for note in notes:
+        if note.get("id") == note_id:
+            note["title"] = title.strip() or note.get("title", "Untitled")
+            note["content"] = content.strip()
+            note["updated"] = date.today().isoformat()
+            break
+    _save(CLIENT_NOTES_FILE, notes)
+
+
+def delete_client_note(note_id: int):
+    notes = [n for n in _load(CLIENT_NOTES_FILE) if n.get("id") != note_id]
+    _save(CLIENT_NOTES_FILE, notes)
+
+
+def toggle_note_pin(note_id: int):
+    notes = _load(CLIENT_NOTES_FILE)
+    for note in notes:
+        if note.get("id") == note_id:
+            note["pinned"] = not bool(note.get("pinned", False))
+            note["updated"] = date.today().isoformat()
+            break
+    _save(CLIENT_NOTES_FILE, notes)
+
+
+def search_client_notes(query: str) -> list:
+    q = (query or "").strip().lower()
+    if not q:
+        return []
+    clients = {c["id"]: c.get("name", "Unknown") for c in get_clients()}
+    results = []
+    for note in _load(CLIENT_NOTES_FILE):
+        if q in note.get("title", "").lower() or q in note.get("content", "").lower():
+            results.append({
+                **note,
+                "client_name": clients.get(note.get("client_id"), "Unknown"),
+            })
+    return sorted(results, key=lambda n: (bool(n.get("pinned", False)), n.get("updated", "")), reverse=True)
+
+
 def get_upcoming_followups() -> list:
     """Return interactions with a follow_up date >= today, sorted by date."""
     today = date.today().isoformat()
@@ -1206,6 +1683,9 @@ def global_search(query: str) -> dict:
             "expenses": [],
             "sdlc_templates": [],
             "scoped_projects": [],
+            "notes": [],
+            "quotes": [],
+            "contracts": [],
         }
     clients = [
         c for c in _load("clients.json")
@@ -1247,6 +1727,21 @@ def global_search(query: str) -> dict:
         or q in project.get("client_name", "").lower()
         or q in project.get("template_name", "").lower()
     ]
+    notes = search_client_notes(query)
+    quotes = [
+        quote for quote in get_quotes()
+        if q in quote.get("quote_number", "").lower()
+        or q in quote.get("client_name", "").lower()
+        or q in quote.get("title", "").lower()
+        or q in quote.get("notes", "").lower()
+    ]
+    contracts = [
+        contract for contract in get_contracts()
+        if q in contract.get("title", "").lower()
+        or q in contract.get("client_name", "").lower()
+        or q in contract.get("contract_type", "").lower()
+        or q in contract.get("notes", "").lower()
+    ]
     return {
         "clients": clients,
         "invoices": invoices,
@@ -1254,6 +1749,9 @@ def global_search(query: str) -> dict:
         "expenses": expenses,
         "sdlc_templates": sdlc_templates,
         "scoped_projects": scoped_projects,
+        "notes": notes,
+        "quotes": quotes,
+        "contracts": contracts,
     }
 
 
@@ -1309,6 +1807,7 @@ DATA_FILES = [
     "clients.json", "invoices.json", "workhours.json",
     "settings.json", "expenses.json", "crm_interactions.json",
     SDLC_TEMPLATE_FILE, SCOPED_PROJECT_FILE,
+    CLIENT_NOTES_FILE, CONTRACT_FILE, QUOTE_FILE,
 ]
 
 

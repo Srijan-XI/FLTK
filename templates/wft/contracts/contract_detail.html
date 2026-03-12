@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ contract.title }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.contracts') }}">← Back to Contracts</a>
+<div class="card">
+  <div style="display:flex; justify-content:space-between; gap:.8rem; flex-wrap:wrap; margin-bottom:1rem;">
+    <div>
+      <h1 class="page-title" style="margin:0">{{ contract.title }}</h1>
+      <p class="muted-text">{{ contract.contract_type }} | Created: {{ contract.created_date }}</p>
+    </div>
+    <div>
+      <span class="badge badge-{{ contract.status }}">{{ contract.status | upper }}</span>
+    </div>
+  </div>
+
+  <div class="two-col" style="align-items:start">
+    <div>
+      <h3>Client</h3>
+      <p><strong>{{ contract.client_name or 'N/A' }}</strong><br>{{ contract.client_email or '' }}</p>
+      <h3>Project</h3>
+      <p style="white-space:pre-line">{{ contract.project_description or '-' }}</p>
+      <h3>Terms</h3>
+      <p style="white-space:pre-line">{{ contract.payment_terms or '-' }}</p>
+    </div>
+    <div>
+      <h3>Financial</h3>
+      <p>Value: <strong>{{ contract.currency_symbol }}{{ "%.2f"|format(contract.project_value) }}</strong></p>
+      <p>Late Fee: {{ contract.late_fee_percent }}%</p>
+      <p>Revision Limit: {{ contract.revision_limit }}</p>
+      <p>Dates: {{ contract.start_date or '-' }} → {{ contract.end_date or '-' }}</p>
+      <h3>Legal</h3>
+      <p>IP Ownership: {{ contract.ip_ownership }}</p>
+      <p>Confidentiality: {{ 'Yes' if contract.confidentiality else 'No' }}</p>
+      <p>Governing Law: {{ contract.governing_law or '-' }}</p>
+    </div>
+  </div>
+
+  {% if contract.custom_clauses %}
+  <h3>Custom Clauses</h3>
+  <p style="white-space:pre-line">{{ contract.custom_clauses }}</p>
+  {% endif %}
+
+  {% if contract.notes %}
+  <h3>Notes</h3>
+  <p style="white-space:pre-line">{{ contract.notes }}</p>
+  {% endif %}
+
+  <div class="btn-group" style="margin-top:1rem; justify-content:flex-start; flex-wrap:wrap; gap:.5rem">
+    <a class="btn btn-secondary" href="{{ url_for('wft.edit_contract', contract_id=contract.id) }}">✏ Edit</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.pdf_contract', contract_id=contract.id) }}">⬇ PDF</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.print_contract', contract_id=contract.id) }}" target="_blank">🖨 Print</a>
+
+    <form method="POST" action="{{ url_for('wft.update_contract_status', contract_id=contract.id) }}">
+      <input type="hidden" name="status" value="sent" />
+      <button class="btn btn-secondary" {% if contract.status == 'sent' %}disabled{% endif %}>Mark Sent</button>
+    </form>
+    <form method="POST" action="{{ url_for('wft.update_contract_status', contract_id=contract.id) }}">
+      <input type="hidden" name="status" value="signed" />
+      <button class="btn btn-primary" {% if contract.status == 'signed' %}disabled{% endif %}>Mark Signed</button>
+    </form>
+
+    <form method="POST" action="{{ url_for('wft.delete_contract', contract_id=contract.id) }}" onsubmit="return confirm('Delete this contract?')">
+      <button class="btn btn-danger">🗑 Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

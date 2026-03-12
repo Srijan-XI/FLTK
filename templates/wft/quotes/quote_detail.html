@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}{{ quote.quote_number }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.quotes') }}">← Back to Quotes</a>
+<div class="invoice-sheet card">
+  <div class="invoice-header">
+    <div>
+      <h1>QUOTE</h1>
+      <p class="inv-number">{{ quote.quote_number }}</p>
+    </div>
+    <div class="inv-meta">
+      <p><strong>{{ quote.client_name }}</strong></p>
+      <p>Issued: {{ quote.issue_date }}</p>
+      <p>Valid Until: {{ quote.expiry_date or 'N/A' }}</p>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; margin-bottom:1rem">
+    <div>
+      <p><strong>{{ quote.title }}</strong></p>
+    </div>
+    <div>
+      <span class="badge badge-{{ quote.status }}">{{ quote.status | upper }}</span>
+      {% if quote.converted_invoice_id %}
+      <span class="badge badge-paid">→ <a href="{{ url_for('wft.invoice_detail', inv_id=quote.converted_invoice_id) }}" style="color:inherit; text-decoration:none">Invoice INV-{{ "%04d"|format(quote.converted_invoice_id) }}</a></span>
+      {% endif %}
+    </div>
+  </div>
+
+  <table class="data-table">
+    <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+    <tbody>
+      {% for item in quote.items %}
+      <tr>
+        <td>{{ item.description }}</td>
+        <td>{{ item.qty }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(item.rate) }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(item.amount) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3" style="text-align:right; color:var(--muted)">Subtotal</td><td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.subtotal) }}</td></tr>
+      {% if quote.tax_rate > 0 %}
+      <tr><td colspan="3" style="text-align:right; color:var(--muted)">Tax ({{ quote.tax_rate }}%)</td><td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.tax_amount) }}</td></tr>
+      {% endif %}
+      <tr class="total-row"><td colspan="3" style="text-align:right"><strong>Total</strong></td><td><strong>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.total) }}</strong></td></tr>
+    </tfoot>
+  </table>
+
+  {% if quote.notes %}
+  <div class="invoice-notes"><strong>Notes:</strong> {{ quote.notes }}</div>
+  {% endif %}
+
+  <div class="btn-group" style="margin-top:1rem; justify-content:flex-start; flex-wrap:wrap; gap:.5rem">
+    {% if quote.status in ['draft', 'sent'] %}
+    <a class="btn btn-secondary" href="{{ url_for('wft.edit_quote', quote_id=quote.id) }}">✏ Edit</a>
+    {% endif %}
+    <a class="btn btn-secondary" href="{{ url_for('wft.pdf_quote', quote_id=quote.id) }}">⬇ PDF</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.print_quote', quote_id=quote.id) }}" target="_blank">🖨 Print</a>
+
+    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
+      <input type="hidden" name="status" value="sent" />
+      <button class="btn btn-secondary" {% if quote.status == 'sent' %}disabled{% endif %}>Mark Sent</button>
+    </form>
+    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
+      <input type="hidden" name="status" value="accepted" />
+      <button class="btn btn-secondary" {% if quote.status == 'accepted' %}disabled{% endif %}>Mark Accepted</button>
+    </form>
+    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
+      <input type="hidden" name="status" value="rejected" />
+      <button class="btn btn-secondary" {% if quote.status == 'rejected' %}disabled{% endif %}>Mark Rejected</button>
+    </form>
+    <form method="POST" action="{{ url_for('wft.update_quote_status', quote_id=quote.id) }}">
+      <input type="hidden" name="status" value="expired" />
+      <button class="btn btn-secondary" {% if quote.status == 'expired' %}disabled{% endif %}>Mark Expired</button>
+    </form>
+
+    {% if quote.status == 'accepted' and not quote.converted_invoice_id %}
+    <form method="POST" action="{{ url_for('wft.convert_quote', quote_id=quote.id) }}">
+      <button class="btn btn-primary">Convert to Invoice</button>
+    </form>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('wft.delete_quote', quote_id=quote.id) }}" onsubmit="return confirm('Delete this quote?')">
+      <button class="btn btn-danger" {% if quote.converted_invoice_id %}disabled{% endif %}>🗑 Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

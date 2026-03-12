@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Client Notes — {{ client.name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.crm_client', client_id=client.id) }}">← Back to CRM</a>
+
+<div class="page-header">
+  <h1 class="page-title">📝 Notes for {{ client.name }}</h1>
+</div>
+
+<div class="card" style="margin-bottom:1rem;">
+  <h2>{% if edit_note %}Edit Note{% else %}Add Note{% endif %}</h2>
+  {% if edit_note %}
+  <form method="POST" action="{{ url_for('wft.update_client_note', client_id=client.id, note_id=edit_note.id) }}">
+  {% else %}
+  <form method="POST" action="{{ url_for('wft.add_client_note', client_id=client.id) }}">
+  {% endif %}
+    <label>Title
+      <input type="text" name="title" value="{{ edit_note.title if edit_note else '' }}" placeholder="Meeting summary" />
+    </label>
+    <label>Content
+      <textarea name="content" rows="5" placeholder="Write your notes here...">{{ edit_note.content if edit_note else '' }}</textarea>
+    </label>
+    <div class="btn-group" style="justify-content:flex-start">
+      <button class="btn btn-primary" type="submit">{% if edit_note %}Update Note{% else %}Add Note{% endif %}</button>
+      {% if edit_note %}<a class="btn btn-secondary" href="{{ url_for('wft.client_notes', client_id=client.id) }}">Cancel</a>{% endif %}
+    </div>
+  </form>
+</div>
+
+{% set pinned = notes | selectattr('pinned') | list %}
+{% if pinned %}
+<div class="card" style="margin-bottom:1rem;">
+  <h2>📌 Pinned Notes</h2>
+  <div class="history-list">
+    {% for note in pinned %}
+    <div class="card history-card" style="border-left:4px solid var(--warning)">
+      <div class="history-row">
+        <div style="flex:1">
+          <div class="history-meta">
+            <strong>{{ note.title }}</strong>
+            <span class="muted-text">Updated {{ note.updated }}</span>
+          </div>
+          <p style="margin-top:.35rem">{{ note.content[:200] ~ ('…' if note.content|length > 200 else '') }}</p>
+        </div>
+        <div class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client_note', client_id=client.id, note_id=note.id) }}">Edit</a>
+          <form method="POST" action="{{ url_for('wft.pin_client_note', client_id=client.id, note_id=note.id) }}" style="display:inline">
+            <button class="btn btn-secondary btn-sm">Unpin</button>
+          </form>
+          <form method="POST" action="{{ url_for('wft.delete_client_note', client_id=client.id, note_id=note.id) }}" style="display:inline" onsubmit="return confirm('Delete this note?')">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2>All Notes</h2>
+  {% if notes %}
+  <div class="history-list">
+    {% for note in notes %}
+    <div class="card history-card">
+      <div class="history-row">
+        <div style="flex:1">
+          <div class="history-meta">
+            {% if note.pinned %}<span class="badge" style="background:rgba(245,158,11,.2);color:var(--warning)">Pinned</span>{% endif %}
+            <strong>{{ note.title }}</strong>
+            <span class="muted-text">Updated {{ note.updated }}</span>
+          </div>
+          <p style="margin-top:.35rem">{{ note.content[:200] ~ ('…' if note.content|length > 200 else '') }}</p>
+        </div>
+        <div class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client_note', client_id=client.id, note_id=note.id) }}">Edit</a>
+          <form method="POST" action="{{ url_for('wft.pin_client_note', client_id=client.id, note_id=note.id) }}" style="display:inline">
+            <button class="btn btn-secondary btn-sm">{{ 'Unpin' if note.pinned else 'Pin' }}</button>
+          </form>
+          <form method="POST" action="{{ url_for('wft.delete_client_note', client_id=client.id, note_id=note.id) }}" style="display:inline" onsubmit="return confirm('Delete this note?')">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-icon">📝</div>
+    <p>No notes yet for this client.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

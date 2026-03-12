@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Invoice Reminder{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">← Back to Invoice</a>
+
+<div class="card" style="max-width:900px; margin-top:1rem;">
+  <h1 class="page-title" style="margin-bottom:.5rem">Reminder Draft — {{ inv.invoice_number }}</h1>
+  <p class="muted-text" style="margin-bottom:1rem">
+    Client: <strong>{{ inv.client_name }}</strong>
+    {% if inv.days_overdue is defined %}
+      · <span class="danger">{{ inv.days_overdue }} days overdue</span>
+    {% endif %}
+  </p>
+
+  <label>Email Draft
+    <textarea id="reminder-draft" rows="14" readonly>{{ draft }}</textarea>
+  </label>
+
+  <div class="btn-group" style="justify-content:flex-start">
+    <button id="copy-draft" class="btn btn-primary" type="button">Copy to Clipboard</button>
+    <a class="btn btn-secondary" href="{{ url_for('wft.overdue_invoices') }}">View All Overdue</a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('copy-draft').addEventListener('click', async () => {
+    const text = document.getElementById('reminder-draft').value;
+    try {
+      await navigator.clipboard.writeText(text);
+      alert('Reminder copied.');
+    } catch (err) {
+      alert('Copy failed. Select and copy manually.');
+    }
+  });
+</script>
+{% endblock %}

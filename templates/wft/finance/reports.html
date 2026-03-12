@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Profitability Report{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📊 Project Profitability Report</h1>
+
+{% if summary %}
+<div class="invoice-summary-bar" style="margin-bottom:1rem;">
+  <div class="isb-item">
+    <span class="isb-val success">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.total_paid) }}</span>
+    <span class="isb-lbl">Total Earned</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.total_outstanding) }}</span>
+    <span class="isb-lbl">Outstanding</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.total_expenses) }}</span>
+    <span class="isb-lbl">Expenses</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val {{ 'success' if summary.net_profit >= 0 else 'danger' }}">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.net_profit) }}</span>
+    <span class="isb-lbl">Net Profit</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val primary">{{ cfg.currency_symbol }}{{ "%.2f"|format(summary.avg_hourly_rate) }}/h</span>
+    <span class="isb-lbl">Avg Rate</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val primary">{{ summary.hours_this_week }}h</span>
+    <span class="isb-lbl">Hours This Week</span>
+  </div>
+</div>
+{% endif %}
+
+{% if summary and (summary.income_by_month or summary.weekly_hours or summary.income_by_client or summary.expense_by_cat) %}
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1rem; margin-bottom:1rem;">
+  <div class="card">
+    <h2 style="font-size:1rem; margin-bottom:.75rem">Income by Month (Last 12)</h2>
+    <canvas id="incomeByMonthChart" height="180"></canvas>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem; margin-bottom:.75rem">Profit by Month (Last 12)</h2>
+    <canvas id="profitByMonthChart" height="180"></canvas>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem; margin-bottom:.75rem">Top Clients by Revenue</h2>
+    <canvas id="incomeByClientChart" height="180"></canvas>
+  </div>
+  <div class="card">
+    <h2 style="font-size:1rem; margin-bottom:.75rem">Expenses by Category</h2>
+    <canvas id="expenseByCategoryChart" height="180"></canvas>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;">
+  <h2 style="font-size:1rem; margin-bottom:.75rem">Hours Logged per Week (Last 12 Weeks)</h2>
+  <canvas id="weeklyHoursChart" height="110"></canvas>
+</div>
+{% endif %}
+
+{% if rows %}
+<div class="card">
+  <div style="overflow-x:auto">
+    <table class="data-table sortable">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Invoices</th>
+          <th>Total Billed</th>
+          <th>Total Paid</th>
+          <th>Budgeted Hrs</th>
+          <th>Actual Hrs</th>
+          <th>Hrs Variance</th>
+          <th>Effective Rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        {% set variance = r.budgeted_hours - r.total_hours %}
+        <tr>
+          <td><strong>{{ r.client }}</strong></td>
+          <td>{{ r.invoice_count }}</td>
+          <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(r.total_billed) }}</td>
+          <td>
+            <span class="{{ 'success' if r.total_paid >= r.total_billed else 'warning' }}">
+              {{ cfg.currency_symbol }}{{ "%.2f"|format(r.total_paid) }}
+            </span>
+          </td>
+          <td>{{ r.budgeted_hours }}h</td>
+          <td>{{ r.total_hours }}h</td>
+          <td>
+            {% if variance >= 0 %}
+              <span class="success">+{{ "%.1f"|format(variance) }}h under</span>
+            {% else %}
+              <span class="danger">{{ "%.1f"|format(variance) }}h over</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.effective_rate > 0 %}
+              <span class="{{ 'success' if r.effective_rate >= 40 else 'warning' }}">
+                {{ cfg.currency_symbol }}{{ "%.2f"|format(r.effective_rate) }}/hr
+              </span>
+            {% else %}
+              <span class="muted-text">-</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="font-weight:700">
+          <td>Totals</td>
+          <td>{{ rows | sum(attribute='invoice_count') }}</td>
+          <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(rows | sum(attribute='total_billed')) }}</td>
+          <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(rows | sum(attribute='total_paid')) }}</td>
+          <td>{{ rows | sum(attribute='budgeted_hours') }}h</td>
+          <td>{{ rows | sum(attribute='total_hours') }}h</td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📊</div>
+  <p>No data yet. Add clients, log hours, and create invoices to see profitability reports.</p>
+</div>
+{% endif %}
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+  Chart.defaults.color = '#8896b0';
+  Chart.defaults.borderColor = '#2a3347';
+
+  const accent = '#7c6ff7';
+  const success = '#2dd4bf';
+  const warning = '#f59e0b';
+  const danger = '#f87171';
+
+  const incomeByMonth = {{ (summary.income_by_month if summary else {}) | tojson }};
+  const profitByMonth = {{ (summary.profit_by_month if summary else {}) | tojson }};
+  const incomeByClient = {{ (summary.income_by_client if summary else {}) | tojson }};
+  const expenseByCat = {{ (summary.expense_by_cat if summary else {}) | tojson }};
+  const weeklyHours = {{ (summary.weekly_hours if summary else []) | tojson }};
+
+  function makeChart(id, cfg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    new Chart(el, cfg);
+  }
+
+  makeChart('incomeByMonthChart', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(incomeByMonth),
+      datasets: [{
+        label: 'Income',
+        data: Object.values(incomeByMonth),
+        backgroundColor: 'rgba(124,111,247,.7)',
+        borderRadius: 5,
+      }],
+    },
+    options: { plugins: { legend: { display: false } }, responsive: true },
+  });
+
+  makeChart('profitByMonthChart', {
+    type: 'line',
+    data: {
+      labels: Object.keys(profitByMonth),
+      datasets: [{
+        label: 'Profit',
+        data: Object.values(profitByMonth),
+        borderColor: success,
+        backgroundColor: 'rgba(45,212,191,.14)',
+        tension: .35,
+        fill: true,
+      }],
+    },
+    options: { plugins: { legend: { display: false } }, responsive: true },
+  });
+
+  makeChart('incomeByClientChart', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(incomeByClient),
+      datasets: [{
+        label: 'Revenue',
+        data: Object.values(incomeByClient),
+        backgroundColor: 'rgba(45,212,191,.72)',
+        borderRadius: 5,
+      }],
+    },
+    options: { plugins: { legend: { display: false } }, responsive: true },
+  });
+
+  makeChart('expenseByCategoryChart', {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(expenseByCat),
+      datasets: [{
+        data: Object.values(expenseByCat),
+        backgroundColor: [accent, success, warning, danger, '#60a5fa', '#f97316', '#94a3b8'],
+        borderColor: '#1e2535',
+        borderWidth: 2,
+      }],
+    },
+    options: { plugins: { legend: { position: 'right' } }, responsive: true },
+  });
+
+  makeChart('weeklyHoursChart', {
+    type: 'bar',
+    data: {
+      labels: weeklyHours.map(w => w.week),
+      datasets: [{
+        label: 'Hours',
+        data: weeklyHours.map(w => w.hours),
+        backgroundColor: 'rgba(245,158,11,.65)',
+        borderRadius: 5,
+      }],
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } },
+      responsive: true,
+    },
+  });
+</script>
+{% endblock %}

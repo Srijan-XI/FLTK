@@ -34,6 +34,7 @@ def settings():
         try:
             rate = float(f.get("default_rate", 50))
             whrs = float(f.get("working_hours_per_day", 8))
+            late_fee_rate = float(f.get("late_fee_rate", 1.5) or 1.5)
         except ValueError:
             flash("Invalid number in settings.", "error")
             return redirect(url_for("wft.settings"))
@@ -48,12 +49,13 @@ def settings():
             "currency_symbol": symbol,
             "default_rate": rate,
             "working_hours_per_day": whrs,
+            "late_fee_rate": late_fee_rate,
         })
         flash("Settings saved.", "success")
         return redirect(url_for("wft.settings"))
 
     cfg = h.get_settings()
-    return render_template("wft/settings.html", cfg=cfg,
+    return render_template("wft/system/settings.html", cfg=cfg,
                            currencies=h.CURRENCY_OPTIONS)
 
 
@@ -61,7 +63,7 @@ def settings():
 
 @wft_bp.route("/templates")
 def templates():
-    return render_template("wft/templates.html", templates=h.get_templates())
+    return render_template("wft/proposals/templates.html", templates=h.get_templates())
 
 
 @wft_bp.route("/templates/<key>")
@@ -70,7 +72,7 @@ def template_detail(key):
     if not tmpl:
         flash("Template not found.", "error")
         return redirect(url_for("wft.templates"))
-    return render_template("wft/template_detail.html", tmpl=tmpl, key=key)
+    return render_template("wft/proposals/template_detail.html", tmpl=tmpl, key=key)
 
 
 # ── SDLC Templates ───────────────────────────────────────────────────────────
@@ -87,7 +89,7 @@ def sdlc_templates():
             or query in " ".join(template.get("tags", [])).lower()
         ]
     return render_template(
-        "wft/sdlc_templates.html",
+        "wft/sdlc/sdlc_templates.html",
         templates=templates,
         stats=h.scoped_project_stats(),
         query=query,
@@ -118,7 +120,7 @@ def new_sdlc_template():
         )
         flash("SDLC template created.", "success")
         return redirect(url_for("wft.sdlc_template_detail", template_id=template["id"]))
-    return render_template("wft/sdlc_template_form.html", template=None)
+    return render_template("wft/sdlc/sdlc_template_form.html", template=None)
 
 
 @wft_bp.route("/sdlc/templates/<int:template_id>")
@@ -131,7 +133,7 @@ def sdlc_template_detail(template_id):
         1 for project in h.get_scoped_projects() if project.get("template_id") == template_id
     )
     return render_template(
-        "wft/sdlc_template_detail.html",
+        "wft/sdlc/sdlc_template_detail.html",
         template=template,
         project_count=project_count,
     )
@@ -168,7 +170,7 @@ def edit_sdlc_template(template_id):
         flash("SDLC template updated.", "success")
         return redirect(url_for("wft.sdlc_template_detail", template_id=template_id))
 
-    return render_template("wft/sdlc_template_form.html", template=template)
+    return render_template("wft/sdlc/sdlc_template_form.html", template=template)
 
 
 @wft_bp.route("/sdlc/templates/<int:template_id>/delete", methods=["POST"])
@@ -223,7 +225,7 @@ def print_sdlc_template(template_id):
     if not template:
         flash("SDLC template not found.", "error")
         return redirect(url_for("wft.sdlc_templates"))
-    return render_template("wft/sdlc_template_print.html", template=template)
+    return render_template("wft/sdlc/sdlc_template_print.html", template=template)
 
 
 @wft_bp.route("/sdlc/templates/<int:template_id>/pdf")
@@ -234,7 +236,7 @@ def pdf_sdlc_template(template_id):
         return redirect(url_for("wft.sdlc_templates"))
     filename = f"{template['slug'] or template['id']}.pdf"
     return _render_pdf_response(
-        "wft/sdlc_template_print.html",
+        "wft/sdlc/sdlc_template_print.html",
         {"template": template},
         filename,
         "wft.sdlc_template_detail",
@@ -251,7 +253,7 @@ def scoped_projects():
     if selected_client:
         projects = [project for project in projects if project.get("client_id") == selected_client]
     return render_template(
-        "wft/scoped_projects.html",
+        "wft/sdlc/scoped_projects.html",
         projects=projects,
         clients=h.get_clients(),
         selected_client=selected_client,
@@ -304,7 +306,7 @@ def new_scoped_project():
         return redirect(url_for("wft.scoped_project_detail", project_id=project["id"]))
 
     return render_template(
-        "wft/scoped_project_form.html",
+        "wft/sdlc/scoped_project_form.html",
         project=None,
         clients=clients,
         templates=templates,
@@ -322,7 +324,7 @@ def scoped_project_detail(project_id):
         flash("Scoped project not found.", "error")
         return redirect(url_for("wft.scoped_projects"))
     template = h.get_sdlc_template(project.get("template_id"))
-    return render_template("wft/scoped_project_detail.html", project=project, template=template)
+    return render_template("wft/sdlc/scoped_project_detail.html", project=project, template=template)
 
 
 @wft_bp.route("/sdlc/projects/<int:project_id>/edit", methods=["GET", "POST"])
@@ -372,7 +374,7 @@ def edit_scoped_project(project_id):
         return redirect(url_for("wft.scoped_project_detail", project_id=project_id))
 
     return render_template(
-        "wft/scoped_project_form.html",
+        "wft/sdlc/scoped_project_form.html",
         project=project,
         clients=clients,
         templates=templates,
@@ -446,7 +448,7 @@ def print_scoped_project(project_id):
         flash("Scoped project not found.", "error")
         return redirect(url_for("wft.scoped_projects"))
     template = h.get_sdlc_template(project.get("template_id"))
-    return render_template("wft/scoped_project_print.html", project=project, template=template)
+    return render_template("wft/sdlc/scoped_project_print.html", project=project, template=template)
 
 
 @wft_bp.route("/sdlc/projects/<int:project_id>/pdf")
@@ -458,7 +460,7 @@ def pdf_scoped_project(project_id):
     template = h.get_sdlc_template(project.get("template_id"))
     filename = f"{project['project_name'].replace(' ', '-').lower()}.pdf"
     return _render_pdf_response(
-        "wft/scoped_project_print.html",
+        "wft/sdlc/scoped_project_print.html",
         {"project": project, "template": template},
         filename,
         "wft.scoped_project_detail",
@@ -470,7 +472,10 @@ def pdf_scoped_project(project_id):
 
 @wft_bp.route("/clients")
 def clients():
-    return render_template("wft/clients.html", clients=h.get_clients(),
+    clients = h.get_clients()
+    for client in clients:
+        client["notes_count"] = len(h.get_client_notes(client["id"]))
+    return render_template("wft/clients/clients.html", clients=clients,
                            currencies=h.CURRENCY_OPTIONS)
 
 
@@ -529,7 +534,7 @@ def edit_client(client_id):
         flash("Client updated.", "success")
         return redirect(url_for("wft.clients"))
 
-    return render_template("wft/edit_client.html", client=client,
+    return render_template("wft/clients/edit_client.html", client=client,
                            currencies=h.CURRENCY_OPTIONS)
 
 
@@ -548,7 +553,37 @@ def invoices():
     from datetime import date
     today = date.today().isoformat()
     summary = h.get_earnings_summary()
-    return render_template("wft/invoices.html", invoices=invs, today=today, summary=summary)
+    cfg = h.get_settings()
+    overdue_map = {inv["id"]: inv for inv in h.get_overdue_invoices()}
+    for inv in invs:
+        overdue = overdue_map.get(inv["id"])
+        inv["is_overdue"] = bool(overdue)
+        inv["days_overdue"] = overdue.get("days_overdue", 0) if overdue else 0
+        inv["display_total"] = h.get_invoice_display_total(inv)
+        inv["base_total"] = float(inv.get("total_base", (inv.get("total", 0.0) or 0.0) * float(inv.get("exchange_rate", 1.0) or 1.0)) or 0.0)
+        inv["base_currency"] = inv.get("base_currency") or cfg.get("currency", "USD")
+    return render_template("wft/invoices/invoices.html", invoices=invs, today=today, summary=summary)
+
+
+@wft_bp.route("/invoices/overdue")
+def overdue_invoices():
+    cfg = h.get_settings()
+    overdue = h.get_overdue_invoices()
+    return render_template("wft/invoices/overdue.html", overdue=overdue, cfg=cfg)
+
+
+@wft_bp.route("/invoices/<int:inv_id>/reminder")
+def invoice_reminder(inv_id):
+    inv_list = h.get_invoices()
+    inv = next((i for i in inv_list if i["id"] == inv_id), None)
+    if not inv:
+        flash("Invoice not found.", "error")
+        return redirect(url_for("wft.invoices"))
+    overdue_map = {item["id"]: item for item in h.get_overdue_invoices()}
+    inv = overdue_map.get(inv_id, inv)
+    draft = h.get_reminder_email_draft(inv)
+    cfg = h.get_settings()
+    return render_template("wft/invoices/invoice_reminder.html", inv=inv, draft=draft, cfg=cfg)
 
 
 @wft_bp.route("/invoices/new", methods=["GET", "POST"])
@@ -583,6 +618,13 @@ def new_invoice():
 
         currency = f.get("currency", cfg["currency"])
         symbol = h.CURRENCY_OPTIONS.get(currency, cfg["currency_symbol"])
+        base_currency = f.get("base_currency", cfg["currency"])
+        try:
+            exchange_rate = float(f.get("exchange_rate", 1.0) or 1.0)
+        except ValueError:
+            exchange_rate = 1.0
+        if currency == base_currency:
+            exchange_rate = 1.0
 
         invoice = h.create_invoice(
             client_name=f["client_name"],
@@ -592,10 +634,12 @@ def new_invoice():
             currency=currency,
             currency_symbol=symbol,
             tax_rate=tax_rate,
+            exchange_rate=exchange_rate,
+            base_currency=base_currency,
         )
         flash(f"Invoice {invoice['invoice_number']} created.", "success")
         return redirect(url_for("wft.invoice_detail", inv_id=invoice["id"]))
-    return render_template("wft/invoice_form.html", clients=h.get_clients(),
+    return render_template("wft/invoices/invoice_form.html", clients=h.get_clients(),
                            cfg=cfg, currencies=h.CURRENCY_OPTIONS)
 
 
@@ -607,7 +651,8 @@ def invoice_detail(inv_id):
         flash("Invoice not found.", "error")
         return redirect(url_for("wft.invoices"))
     cfg = h.get_settings()
-    return render_template("wft/invoice_detail.html", inv=inv, cfg=cfg)
+    inv["display_total"] = h.get_invoice_display_total(inv)
+    return render_template("wft/invoices/invoice_detail.html", inv=inv, cfg=cfg)
 
 
 @wft_bp.route("/invoices/pay/<int:inv_id>", methods=["POST"])
@@ -627,6 +672,375 @@ def delete_invoice(inv_id):
     return redirect(url_for("wft.invoices"))
 
 
+# ── Contracts ───────────────────────────────────────────────────────────────
+
+@wft_bp.route("/contracts")
+def contracts():
+    return render_template(
+        "wft/contracts/contracts.html",
+        contracts=h.get_contracts(),
+        stats=h.get_contract_stats(),
+    )
+
+
+@wft_bp.route("/contracts/new", methods=["GET", "POST"])
+def new_contract():
+    cfg = h.get_settings()
+    clients = h.get_clients()
+    prefill_client_id = request.args.get("client_id", type=int)
+    prefill_client = h.get_client(prefill_client_id) if prefill_client_id else None
+
+    if request.method == "POST":
+        f = request.form
+        client_id = f.get("client_id", type=int)
+        client = h.get_client(client_id) if client_id else None
+        contract = h.add_contract(
+            title=f.get("title", ""),
+            contract_type=f.get("contract_type", ""),
+            client_id=client_id,
+            client_name=f.get("client_name", "") or (client.get("name") if client else ""),
+            client_email=f.get("client_email", "") or (client.get("email") if client else ""),
+            project_description=f.get("project_description", ""),
+            payment_terms=f.get("payment_terms", ""),
+            project_value=float(f.get("project_value", 0) or 0.0),
+            currency_symbol=f.get("currency_symbol") or cfg.get("currency_symbol", "$"),
+            start_date=f.get("start_date", ""),
+            end_date=f.get("end_date", ""),
+            revision_limit=int(f.get("revision_limit", 0) or 0),
+            late_fee_percent=float(f.get("late_fee_percent", 0) or 0.0),
+            ip_ownership=f.get("ip_ownership", "client"),
+            confidentiality=bool(f.get("confidentiality")),
+            governing_law=f.get("governing_law", ""),
+            freelancer_name=f.get("freelancer_name", ""),
+            freelancer_business=f.get("freelancer_business", ""),
+            custom_clauses=f.get("custom_clauses", ""),
+            notes=f.get("notes", ""),
+            status="draft",
+        )
+        flash("Contract created.", "success")
+        return redirect(url_for("wft.contract_detail", contract_id=contract["id"]))
+
+    return render_template(
+        "wft/contracts/contract_form.html",
+        contract=None,
+        clients=clients,
+        cfg=cfg,
+        contract_types=h.CONTRACT_TYPES,
+        prefill_client=prefill_client,
+    )
+
+
+@wft_bp.route("/contracts/<int:contract_id>")
+def contract_detail(contract_id):
+    contract = h.get_contract(contract_id)
+    if not contract:
+        flash("Contract not found.", "error")
+        return redirect(url_for("wft.contracts"))
+    return render_template("wft/contracts/contract_detail.html", contract=contract)
+
+
+@wft_bp.route("/contracts/<int:contract_id>/edit", methods=["GET", "POST"])
+def edit_contract(contract_id):
+    contract = h.get_contract(contract_id)
+    if not contract:
+        flash("Contract not found.", "error")
+        return redirect(url_for("wft.contracts"))
+
+    cfg = h.get_settings()
+    clients = h.get_clients()
+
+    if request.method == "POST":
+        f = request.form
+        client_id = f.get("client_id", type=int)
+        client = h.get_client(client_id) if client_id else None
+        h.update_contract(
+            contract_id,
+            title=f.get("title", ""),
+            contract_type=f.get("contract_type", ""),
+            client_id=client_id,
+            client_name=f.get("client_name", "") or (client.get("name") if client else ""),
+            client_email=f.get("client_email", "") or (client.get("email") if client else ""),
+            project_description=f.get("project_description", ""),
+            payment_terms=f.get("payment_terms", ""),
+            project_value=float(f.get("project_value", 0) or 0.0),
+            currency_symbol=f.get("currency_symbol") or cfg.get("currency_symbol", "$"),
+            start_date=f.get("start_date", ""),
+            end_date=f.get("end_date", ""),
+            revision_limit=int(f.get("revision_limit", 0) or 0),
+            late_fee_percent=float(f.get("late_fee_percent", 0) or 0.0),
+            ip_ownership=f.get("ip_ownership", "client"),
+            confidentiality=bool(f.get("confidentiality")),
+            governing_law=f.get("governing_law", ""),
+            freelancer_name=f.get("freelancer_name", ""),
+            freelancer_business=f.get("freelancer_business", ""),
+            custom_clauses=f.get("custom_clauses", ""),
+            notes=f.get("notes", ""),
+        )
+        flash("Contract updated.", "success")
+        return redirect(url_for("wft.contract_detail", contract_id=contract_id))
+
+    return render_template(
+        "wft/contracts/contract_form.html",
+        contract=contract,
+        clients=clients,
+        cfg=cfg,
+        contract_types=h.CONTRACT_TYPES,
+        prefill_client=None,
+    )
+
+
+@wft_bp.route("/contracts/<int:contract_id>/delete", methods=["POST"])
+def delete_contract(contract_id):
+    h.delete_contract(contract_id)
+    flash("Contract deleted.", "info")
+    return redirect(url_for("wft.contracts"))
+
+
+@wft_bp.route("/contracts/<int:contract_id>/status", methods=["POST"])
+def update_contract_status(contract_id):
+    status = request.form.get("status", "").lower()
+    if status in {"draft", "sent", "signed"}:
+        h.update_contract(contract_id, status=status)
+        flash(f"Contract marked as {status}.", "success")
+    else:
+        flash("Invalid contract status.", "error")
+    return redirect(url_for("wft.contract_detail", contract_id=contract_id))
+
+
+@wft_bp.route("/contracts/<int:contract_id>/print")
+def print_contract(contract_id):
+    contract = h.get_contract(contract_id)
+    if not contract:
+        flash("Contract not found.", "error")
+        return redirect(url_for("wft.contracts"))
+    return render_template("wft/contracts/contract_print.html", contract=contract)
+
+
+@wft_bp.route("/contracts/<int:contract_id>/pdf")
+def pdf_contract(contract_id):
+    contract = h.get_contract(contract_id)
+    if not contract:
+        flash("Contract not found.", "error")
+        return redirect(url_for("wft.contracts"))
+    filename = f"contract-{contract_id}.pdf"
+    return _render_pdf_response(
+        "wft/contracts/contract_print.html",
+        {"contract": contract},
+        filename,
+        "wft.contract_detail",
+        contract_id=contract_id,
+    )
+
+
+# ── Quotes ──────────────────────────────────────────────────────────────────
+
+@wft_bp.route("/quotes")
+def quotes():
+    return render_template(
+        "wft/quotes/quotes.html",
+        quotes=h.get_quotes(),
+        stats=h.get_quote_stats(),
+    )
+
+
+@wft_bp.route("/quotes/new", methods=["GET", "POST"])
+def new_quote():
+    cfg = h.get_settings()
+    clients = h.get_clients()
+    prefill_client_id = request.args.get("client_id", type=int)
+    prefill_client = h.get_client(prefill_client_id) if prefill_client_id else None
+
+    if request.method == "POST":
+        f = request.form
+        descs = f.getlist("description")
+        qtys = f.getlist("qty")
+        rates = f.getlist("rate")
+        items = []
+        for desc, qty, rate in zip(descs, qtys, rates):
+            if not desc.strip():
+                continue
+            try:
+                items.append({
+                    "description": desc,
+                    "qty": float(qty or 0),
+                    "rate": float(rate or 0),
+                })
+            except ValueError:
+                flash("Invalid quote item values.", "error")
+                return redirect(url_for("wft.new_quote"))
+
+        if not items:
+            flash("Add at least one quote line item.", "error")
+            return redirect(url_for("wft.new_quote"))
+
+        client_id = f.get("client_id", type=int)
+        client = h.get_client(client_id) if client_id else None
+        quote = h.add_quote(
+            client_id=client_id,
+            client_name=f.get("client_name", "") or (client.get("name") if client else ""),
+            title=f.get("title", ""),
+            items=items,
+            tax_rate=float(f.get("tax_rate", 0) or 0.0),
+            currency=f.get("currency", cfg.get("currency", "USD")),
+            currency_symbol=h.CURRENCY_OPTIONS.get(
+                f.get("currency", cfg.get("currency", "USD")),
+                cfg.get("currency_symbol", "$"),
+            ),
+            expiry_date=f.get("expiry_date", ""),
+            notes=f.get("notes", ""),
+        )
+        flash(f"Quote {quote['quote_number']} created.", "success")
+        return redirect(url_for("wft.quote_detail", quote_id=quote["id"]))
+
+    return render_template(
+        "wft/quotes/quote_form.html",
+        quote=None,
+        clients=clients,
+        cfg=cfg,
+        currencies=h.CURRENCY_OPTIONS,
+        prefill_client=prefill_client,
+    )
+
+
+@wft_bp.route("/quotes/<int:quote_id>")
+def quote_detail(quote_id):
+    quote = h.get_quote(quote_id)
+    if not quote:
+        flash("Quote not found.", "error")
+        return redirect(url_for("wft.quotes"))
+    return render_template("wft/quotes/quote_detail.html", quote=quote)
+
+
+@wft_bp.route("/quotes/<int:quote_id>/edit", methods=["GET", "POST"])
+def edit_quote(quote_id):
+    quote = h.get_quote(quote_id)
+    if not quote:
+        flash("Quote not found.", "error")
+        return redirect(url_for("wft.quotes"))
+    if quote.get("status") not in {"draft", "sent"}:
+        flash("Only draft or sent quotes can be edited.", "error")
+        return redirect(url_for("wft.quote_detail", quote_id=quote_id))
+
+    cfg = h.get_settings()
+    clients = h.get_clients()
+
+    if request.method == "POST":
+        f = request.form
+        descs = f.getlist("description")
+        qtys = f.getlist("qty")
+        rates = f.getlist("rate")
+        items = []
+        for desc, qty, rate in zip(descs, qtys, rates):
+            if not desc.strip():
+                continue
+            try:
+                items.append({
+                    "description": desc,
+                    "qty": float(qty or 0),
+                    "rate": float(rate or 0),
+                })
+            except ValueError:
+                flash("Invalid quote item values.", "error")
+                return redirect(url_for("wft.edit_quote", quote_id=quote_id))
+
+        if not items:
+            flash("Add at least one quote line item.", "error")
+            return redirect(url_for("wft.edit_quote", quote_id=quote_id))
+
+        client_id = f.get("client_id", type=int)
+        client = h.get_client(client_id) if client_id else None
+        h.update_quote(
+            quote_id,
+            client_id=client_id,
+            client_name=f.get("client_name", "") or (client.get("name") if client else ""),
+            title=f.get("title", ""),
+            items=items,
+            tax_rate=float(f.get("tax_rate", 0) or 0.0),
+            currency=f.get("currency", cfg.get("currency", "USD")),
+            currency_symbol=h.CURRENCY_OPTIONS.get(
+                f.get("currency", cfg.get("currency", "USD")),
+                cfg.get("currency_symbol", "$"),
+            ),
+            expiry_date=f.get("expiry_date", ""),
+            notes=f.get("notes", ""),
+        )
+        flash("Quote updated.", "success")
+        return redirect(url_for("wft.quote_detail", quote_id=quote_id))
+
+    return render_template(
+        "wft/quotes/quote_form.html",
+        quote=quote,
+        clients=clients,
+        cfg=cfg,
+        currencies=h.CURRENCY_OPTIONS,
+        prefill_client=None,
+    )
+
+
+@wft_bp.route("/quotes/<int:quote_id>/delete", methods=["POST"])
+def delete_quote(quote_id):
+    if h.delete_quote(quote_id):
+        flash("Quote deleted.", "info")
+    else:
+        flash("Converted quotes cannot be deleted.", "error")
+    return redirect(url_for("wft.quotes"))
+
+
+@wft_bp.route("/quotes/<int:quote_id>/status", methods=["POST"])
+def update_quote_status(quote_id):
+    status = request.form.get("status", "").lower()
+    if status in h.QUOTE_STATUS_OPTIONS:
+        h.update_quote_status(quote_id, status)
+        flash(f"Quote marked as {status}.", "success")
+    else:
+        flash("Invalid quote status.", "error")
+    return redirect(url_for("wft.quote_detail", quote_id=quote_id))
+
+
+@wft_bp.route("/quotes/<int:quote_id>/convert", methods=["POST"])
+def convert_quote(quote_id):
+    quote = h.get_quote(quote_id)
+    if not quote:
+        flash("Quote not found.", "error")
+        return redirect(url_for("wft.quotes"))
+    if quote.get("status") != "accepted":
+        flash("Only accepted quotes can be converted to invoices.", "error")
+        return redirect(url_for("wft.quote_detail", quote_id=quote_id))
+
+    invoice = h.convert_quote_to_invoice(quote_id)
+    if not invoice:
+        flash("Unable to convert quote to invoice.", "error")
+        return redirect(url_for("wft.quote_detail", quote_id=quote_id))
+
+    flash(f"Invoice {invoice['invoice_number']} created.", "success")
+    return redirect(url_for("wft.invoice_detail", inv_id=invoice["id"]))
+
+
+@wft_bp.route("/quotes/<int:quote_id>/print")
+def print_quote(quote_id):
+    quote = h.get_quote(quote_id)
+    if not quote:
+        flash("Quote not found.", "error")
+        return redirect(url_for("wft.quotes"))
+    return render_template("wft/quotes/quote_print.html", quote=quote)
+
+
+@wft_bp.route("/quotes/<int:quote_id>/pdf")
+def pdf_quote(quote_id):
+    quote = h.get_quote(quote_id)
+    if not quote:
+        flash("Quote not found.", "error")
+        return redirect(url_for("wft.quotes"))
+    filename = f"{quote.get('quote_number', 'quote')}.pdf"
+    return _render_pdf_response(
+        "wft/quotes/quote_print.html",
+        {"quote": quote},
+        filename,
+        "wft.quote_detail",
+        quote_id=quote_id,
+    )
+
+
 # ── Invoice PDF Export ────────────────────────────────────────────────────────
 
 @wft_bp.route("/invoices/<int:inv_id>/pdf")
@@ -641,7 +1055,7 @@ def invoice_pdf(inv_id):
         from xhtml2pdf import pisa
         import io
         from flask import render_template, current_app
-        html = render_template("wft/invoice_pdf.html", inv=inv,
+        html = render_template("wft/invoices/invoice_pdf.html", inv=inv,
                                cfg=h.get_settings())
         buf = io.BytesIO()
         pisa_status = pisa.CreatePDF(html, dest=buf)
@@ -669,7 +1083,7 @@ def hours():
     period = request.args.get("period", "all")
     stats = h.analytics(period=period)
     clients_list = h.get_clients()
-    return render_template("wft/hours.html", entries=entries, stats=stats,
+    return render_template("wft/hours/hours.html", entries=entries, stats=stats,
                            period=period, clients=clients_list)
 
 
@@ -723,7 +1137,7 @@ def edit_hours(entry_id):
         flash("Entry updated.", "success")
         return redirect(url_for("wft.hours"))
 
-    return render_template("wft/edit_hours.html", entry=entry,
+    return render_template("wft/hours/edit_hours.html", entry=entry,
                            clients=h.get_clients())
 
 
@@ -840,7 +1254,7 @@ def expenses():
     cfg = h.get_settings()
     entries = sorted(h.get_expenses(), key=lambda x: x["date"], reverse=True)
     summary = h.get_expense_summary()
-    return render_template("wft/expenses.html", expenses=entries,
+    return render_template("wft/finance/expenses.html", expenses=entries,
                            summary=summary, cfg=cfg,
                            categories=h.EXPENSE_CATEGORIES)
 
@@ -868,7 +1282,7 @@ def tax_estimator():
             result = h.estimate_tax(income, rate, exp)
         except ValueError:
             flash("Invalid numbers provided.", "error")
-    return render_template("wft/tax.html", result=result, cfg=cfg,
+    return render_template("wft/finance/tax.html", result=result, cfg=cfg,
                            summary=summary)
 
 
@@ -884,9 +1298,12 @@ def search():
         "expenses": [],
         "sdlc_templates": [],
         "scoped_projects": [],
+        "notes": [],
+        "quotes": [],
+        "contracts": [],
     }
     total = sum(len(v) for v in results.values())
-    return render_template("wft/search.html", results=results, query=q, total=total)
+    return render_template("wft/system/search.html", results=results, query=q, total=total)
 
 
 # ── Profitability Report ──────────────────────────────────────────────────────
@@ -895,14 +1312,16 @@ def search():
 def reports():
     rows = h.profitability_report()
     cfg = h.get_settings()
-    return render_template("wft/reports.html", rows=rows, cfg=cfg)
+    summary = h.get_earnings_summary()
+    overdue = h.get_overdue_invoices()
+    return render_template("wft/finance/reports.html", rows=rows, cfg=cfg, summary=summary, overdue=overdue)
 
 
 # ── Data Backup & Restore ────────────────────────────────────────────────────
 
 @wft_bp.route("/backup")
 def backup():
-    return render_template("wft/backup.html")
+    return render_template("wft/system/backup.html")
 
 
 @wft_bp.route("/backup/download")
@@ -955,8 +1374,9 @@ def crm_client(client_id):
                            if i.get("status") == "paid"), 2)
     cfg = h.get_settings()
     scoped_projects = h.get_client_scoped_projects(client_id)
+    pinned_notes = [n for n in h.get_client_notes(client_id) if n.get("pinned")][:3]
     return render_template(
-        "wft/crm_client.html",
+        "wft/clients/crm_client.html",
         client=client,
         interactions=interactions,
         invoices=invoices[:5],
@@ -966,6 +1386,7 @@ def crm_client(client_id):
         total_paid=total_paid,
         crm_types=h.CRM_TYPES,
         cfg=cfg,
+        pinned_notes=pinned_notes,
     )
 
 
@@ -988,3 +1409,74 @@ def crm_delete_interaction(client_id, interaction_id):
     h.delete_interaction(interaction_id)
     flash("Interaction removed.", "info")
     return redirect(url_for("wft.crm_client", client_id=client_id))
+
+
+# ── Client Notes ─────────────────────────────────────────────────────────────
+
+@wft_bp.route("/clients/<int:client_id>/notes")
+def client_notes(client_id):
+    all_clients = h.get_clients()
+    client = next((c for c in all_clients if c["id"] == client_id), None)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("wft.clients"))
+    notes = h.get_client_notes(client_id)
+    return render_template("wft/clients/client_notes.html", client=client, notes=notes, edit_note=None)
+
+
+@wft_bp.route("/clients/<int:client_id>/notes/add", methods=["POST"])
+def add_client_note(client_id):
+    title = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    if not title and not content:
+        flash("Add a title or content for the note.", "error")
+        return redirect(url_for("wft.client_notes", client_id=client_id))
+    h.add_client_note(client_id, title, content)
+    flash("Note added.", "success")
+    return redirect(url_for("wft.client_notes", client_id=client_id))
+
+
+@wft_bp.route("/clients/<int:client_id>/notes/<int:note_id>/edit")
+def edit_client_note(client_id, note_id):
+    all_clients = h.get_clients()
+    client = next((c for c in all_clients if c["id"] == client_id), None)
+    note = h.get_client_note(note_id)
+    if not client or not note or note.get("client_id") != client_id:
+        flash("Note not found.", "error")
+        return redirect(url_for("wft.client_notes", client_id=client_id))
+    notes = h.get_client_notes(client_id)
+    return render_template("wft/clients/client_notes.html", client=client, notes=notes, edit_note=note)
+
+
+@wft_bp.route("/clients/<int:client_id>/notes/<int:note_id>/edit", methods=["POST"])
+def update_client_note(client_id, note_id):
+    note = h.get_client_note(note_id)
+    if not note or note.get("client_id") != client_id:
+        flash("Note not found.", "error")
+        return redirect(url_for("wft.client_notes", client_id=client_id))
+    h.update_client_note(note_id, request.form.get("title", ""), request.form.get("content", ""))
+    flash("Note updated.", "success")
+    return redirect(url_for("wft.client_notes", client_id=client_id))
+
+
+@wft_bp.route("/clients/<int:client_id>/notes/<int:note_id>/delete", methods=["POST"])
+def delete_client_note(client_id, note_id):
+    note = h.get_client_note(note_id)
+    if note and note.get("client_id") == client_id:
+        h.delete_client_note(note_id)
+        flash("Note deleted.", "info")
+    else:
+        flash("Note not found.", "error")
+    return redirect(url_for("wft.client_notes", client_id=client_id))
+
+
+@wft_bp.route("/clients/<int:client_id>/notes/<int:note_id>/pin", methods=["POST"])
+def pin_client_note(client_id, note_id):
+    note = h.get_client_note(note_id)
+    if note and note.get("client_id") == client_id:
+        h.toggle_note_pin(note_id)
+        flash("Note pin updated.", "success")
+    else:
+        flash("Note not found.", "error")
+    return redirect(url_for("wft.client_notes", client_id=client_id))
+

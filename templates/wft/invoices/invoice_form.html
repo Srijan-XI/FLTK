@@ -32,6 +32,16 @@
           {% endfor %}
         </select>
       </label>
+      <input type="hidden" id="base-currency" name="base_currency" value="{{ cfg.currency }}" />
+      <div id="exchange-rate-section" style="display:none">
+        <label>Exchange Rate
+          <small>
+            1 <span id="inv-currency">USD</span> = ? <span id="base-currency-label">{{ cfg.currency }}</span>
+          </small>
+          <input type="number" name="exchange_rate" id="exchange-rate" min="0" step="0.0001" value="1.0" />
+          <small>Enter today's rate manually. This is saved with the invoice.</small>
+        </label>
+      </div>
       <label>Tax Rate (%)
         <input type="number" name="tax_rate" min="0" max="100" step="0.1" placeholder="0" value="0" id="tax-rate" />
         <small>Applied to subtotal</small>
@@ -97,6 +107,21 @@
     return CURRENCY_SYMBOLS[sel.value] || '$';
   }
 
+  function updateExchangeRateUI() {
+    const sel = document.getElementById('currency-select');
+    const base = document.getElementById('base-currency').value;
+    const section = document.getElementById('exchange-rate-section');
+    const invCurrency = sel.value;
+    document.getElementById('inv-currency').textContent = invCurrency;
+    document.getElementById('base-currency-label').textContent = base;
+    if (invCurrency !== base) {
+      section.style.display = '';
+    } else {
+      section.style.display = 'none';
+      document.getElementById('exchange-rate').value = '1.0';
+    }
+  }
+
   function updateAmount(row) {
     const h = parseFloat(row.querySelector('.hours-inp').value) || 0;
     const r = parseFloat(row.querySelector('.rate-inp').value) || 0;
@@ -126,7 +151,10 @@
     if (row) updateAmount(row);
   });
   document.getElementById('tax-rate').addEventListener('input', updateTotals);
-  document.getElementById('currency-select').addEventListener('change', updateTotals);
+  document.getElementById('currency-select').addEventListener('change', () => {
+    updateTotals();
+    updateExchangeRateUI();
+  });
 
   document.getElementById('add-row').addEventListener('click', () => {
     const body = document.getElementById('items-body');
@@ -155,5 +183,8 @@
       }
     }
   });
+
+  updateExchangeRateUI();
+  updateTotals();
 </script>
 {% endblock %}

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Quotes{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">💼 Quotes</h1>
+  <a class="btn btn-primary" href="{{ url_for('wft.new_quote') }}">+ New Quote</a>
+</div>
+
+{% if stats %}
+<div class="invoice-summary-bar">
+  <div class="isb-item"><span class="isb-val">{{ stats.total }}</span><span class="isb-lbl">Total</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val">{{ stats.draft }}</span><span class="isb-lbl">Draft</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val">{{ stats.sent }}</span><span class="isb-lbl">Sent</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val success">{{ stats.accepted }}</span><span class="isb-lbl">Accepted</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val danger">{{ stats.rejected }}</span><span class="isb-lbl">Rejected</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val warning">{{ "%.2f"|format(stats.conversion_rate) }}%</span><span class="isb-lbl">Conversion</span></div>
+</div>
+{% endif %}
+
+{% if quotes %}
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Client</th>
+        <th>Title</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Expiry</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for quote in quotes %}
+      <tr>
+        <td>{{ quote.quote_number }}</td>
+        <td>{{ quote.client_name }}</td>
+        <td>{{ quote.title }}</td>
+        <td>{{ quote.currency_symbol }}{{ "%.2f"|format(quote.total) }}</td>
+        <td><span class="badge badge-{{ quote.status }}">{{ quote.status }}</span></td>
+        <td>{{ quote.expiry_date or '-' }}</td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.quote_detail', quote_id=quote.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">💼</div>
+    <p>No quotes yet.</p>
+    <a class="btn btn-primary" href="{{ url_for('wft.new_quote') }}">Create your first quote →</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

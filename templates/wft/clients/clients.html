@@ -106,6 +106,7 @@
           </td>
           <td class="action-cell">
             <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.crm_client', client_id=c.id) }}" title="CRM">💬</a>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.client_notes', client_id=c.id) }}" title="Notes">📝 {{ c.notes_count }}</a>
             <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_client', client_id=c.id) }}">✏</a>
             <form method="POST" action="{{ url_for('wft.delete_client', client_id=c.id) }}"
               onsubmit="return confirm('Remove {{ c.name }}?')" style="display:inline">

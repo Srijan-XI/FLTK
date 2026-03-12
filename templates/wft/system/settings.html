@@ -37,6 +37,12 @@
             <small>Used by the Deadline Risk Predictor</small>
         </label>
 
+        <label>Late Fee Rate (% per month)
+            <input type="number" name="late_fee_rate" min="0" step="0.01"
+                value="{{ cfg.late_fee_rate }}" />
+            <small>Used to estimate late fee on overdue invoices.</small>
+        </label>
+
         <button type="submit" class="btn btn-primary btn-full" style="margin-top:1.2rem">Save Settings</button>
     </form>
 </div>

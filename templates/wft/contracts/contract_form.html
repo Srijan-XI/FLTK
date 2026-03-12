@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Contract' if contract else 'New Contract' }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.contracts') }}">← Back to Contracts</a>
+<h1 class="page-title">{{ 'Edit Contract' if contract else 'New Contract' }}</h1>
+
+<div class="card">
+  <form method="POST">
+    <h3 style="margin-bottom:.5rem">1. Basic Info</h3>
+    <div class="form-row">
+      <label>Title *
+        <input type="text" name="title" required value="{{ contract.title if contract else '' }}" />
+      </label>
+      <label>Contract Type
+        <select name="contract_type">
+          {% for ctype in contract_types %}
+          <option value="{{ ctype }}" {% if contract and contract.contract_type == ctype %}selected{% endif %}>{{ ctype }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Client
+        <select name="client_id" id="contract-client-id">
+          <option value="">— Select client —</option>
+          {% for c in clients %}
+          {% set selected_client_id = contract.client_id if contract else (prefill_client.id if prefill_client else None) %}
+          <option value="{{ c.id }}" data-name="{{ c.name }}" data-email="{{ c.email }}" {% if selected_client_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Client Name
+        <input type="text" name="client_name" id="contract-client-name" value="{{ contract.client_name if contract else (prefill_client.name if prefill_client else '') }}" />
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Client Email
+        <input type="email" name="client_email" id="contract-client-email" value="{{ contract.client_email if contract else (prefill_client.email if prefill_client else '') }}" />
+      </label>
+      <label>Project Value
+        <input type="number" name="project_value" step="0.01" min="0" value="{{ contract.project_value if contract else 0 }}" />
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Start Date
+        <input type="date" name="start_date" value="{{ contract.start_date if contract else '' }}" />
+      </label>
+      <label>End Date
+        <input type="date" name="end_date" value="{{ contract.end_date if contract else '' }}" />
+      </label>
+    </div>
+
+    <h3 style="margin:1rem 0 .5rem">2. Financials</h3>
+    <div class="form-row">
+      <label>Payment Terms
+        <textarea name="payment_terms" rows="2">{{ contract.payment_terms if contract else '' }}</textarea>
+      </label>
+      <label>Late Fee (% monthly)
+        <input type="number" name="late_fee_percent" step="0.1" min="0" value="{{ contract.late_fee_percent if contract else 0 }}" />
+      </label>
+    </div>
+    <div class="form-row">
+      <label>Revision Limit
+        <input type="number" name="revision_limit" min="0" value="{{ contract.revision_limit if contract else 0 }}" />
+      </label>
+      <label>Currency Symbol
+        <input type="text" name="currency_symbol" value="{{ contract.currency_symbol if contract else cfg.currency_symbol }}" />
+      </label>
+    </div>
+
+    <h3 style="margin:1rem 0 .5rem">3. Scope & Legal</h3>
+    <label>Project Description
+      <textarea name="project_description" rows="3">{{ contract.project_description if contract else '' }}</textarea>
+    </label>
+
+    <div class="form-row">
+      <label>IP Ownership
+        <select name="ip_ownership">
+          {% set ip = contract.ip_ownership if contract else 'client' %}
+          <option value="client" {% if ip == 'client' %}selected{% endif %}>Client</option>
+          <option value="freelancer" {% if ip == 'freelancer' %}selected{% endif %}>Freelancer</option>
+          <option value="shared" {% if ip == 'shared' %}selected{% endif %}>Shared</option>
+        </select>
+      </label>
+      <label>Governing Law
+        <input type="text" name="governing_law" value="{{ contract.governing_law if contract else '' }}" />
+      </label>
+    </div>
+
+    <label style="display:flex; align-items:center; gap:.4rem; margin:.5rem 0 1rem;">
+      <input type="checkbox" name="confidentiality" {% if contract and contract.confidentiality %}checked{% endif %} />
+      Include confidentiality clause
+    </label>
+
+    <label>Custom Clauses
+      <textarea name="custom_clauses" rows="4">{{ contract.custom_clauses if contract else '' }}</textarea>
+    </label>
+
+    <h3 style="margin:1rem 0 .5rem">4. Freelancer</h3>
+    <div class="form-row">
+      <label>Freelancer Name
+        <input type="text" name="freelancer_name" value="{{ contract.freelancer_name if contract else cfg.name }}" />
+      </label>
+      <label>Freelancer Business
+        <input type="text" name="freelancer_business" value="{{ contract.freelancer_business if contract else cfg.business }}" />
+      </label>
+    </div>
+
+    <label>Internal Notes
+      <textarea name="notes" rows="2">{{ contract.notes if contract else '' }}</textarea>
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">{{ 'Save Contract' if contract else 'Create Contract' }}</button>
+  </form>
+</div>
+
+<script>
+  const clientSelect = document.getElementById('contract-client-id');
+  const nameInput = document.getElementById('contract-client-name');
+  const emailInput = document.getElementById('contract-client-email');
+
+  clientSelect.addEventListener('change', () => {
+    const opt = clientSelect.options[clientSelect.selectedIndex];
+    if (!opt) return;
+    if (!nameInput.value && opt.dataset.name) nameInput.value = opt.dataset.name;
+    if (!emailInput.value && opt.dataset.email) emailInput.value = opt.dataset.email;
+  });
+</script>
+{% endblock %}

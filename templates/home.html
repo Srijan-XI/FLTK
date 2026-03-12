@@ -41,10 +41,10 @@
     </div>
     {% if summary.overdue_count > 0 %}
     <div class="dash-divider"></div>
-    <div class="dash-stat">
+    <a class="dash-stat dash-stat-link" href="{{ url_for('wft.overdue_invoices') }}">
       <span class="dash-val danger">{{ summary.overdue_count }}</span>
-      <span class="dash-lbl">⚠ Overdue Invoice{{ 's' if summary.overdue_count != 1 }}</span>
-    </div>
+      <span class="dash-lbl"><span class="pulse-dot"></span> Overdue Invoice{{ 's' if summary.overdue_count != 1 }}</span>
+    </a>
     {% endif %}
   </div>
   {% endif %}
@@ -149,7 +149,7 @@
 </section>
 
 {% if summary and (summary.income_by_month or summary.weekly_hours or summary.income_by_client) %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 <script>
 Chart.defaults.color = '#8896b0';
 Chart.defaults.borderColor = '#2a3347';
