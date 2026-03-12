@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{% if template %}Edit SDLC Template{% else %}New SDLC Template{% endif %}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.sdlc_templates') }}">← Back to SDLC Templates</a>
+<h1 class="page-title">{% if template %}Edit SDLC Template{% else %}Create SDLC Template{% endif %}</h1>
+
+<div class="card">
+  <form method="POST">
+    <div class="form-row">
+      <label>Name *
+        <input type="text" name="name" required value="{{ template.name if template else '' }}" placeholder="Agile Model" />
+      </label>
+      <label>Tags
+        <input type="text" name="tags" value="{{ template.tags | join(', ') if template else '' }}" placeholder="adaptive, sprint, product" />
+      </label>
+    </div>
+
+    <label>Summary
+      <textarea name="summary" rows="3" placeholder="Short description of the model">{{ template.summary if template else '' }}</textarea>
+    </label>
+
+    <label>Best For
+      <textarea name="best_for" rows="3" placeholder="Ideal project and client fit">{{ template.best_for if template else '' }}</textarea>
+    </label>
+
+    <div class="form-row">
+      <label>Phases
+        <textarea name="phases" rows="7" placeholder="One phase per line">{{ template.phases | join('\n') if template else '' }}</textarea>
+      </label>
+      <label>Deliverables
+        <textarea name="deliverables" rows="7" placeholder="One deliverable per line">{{ template.deliverables | join('\n') if template else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Scope Controls
+        <textarea name="scope_controls" rows="7" placeholder="Rules that protect project scope">{{ template.scope_controls | join('\n') if template else '' }}</textarea>
+      </label>
+      <label>Strengths
+        <textarea name="strengths" rows="7" placeholder="One strength per line">{{ template.strengths | join('\n') if template else '' }}</textarea>
+      </label>
+    </div>
+
+    <label>Risks
+      <textarea name="risks" rows="5" placeholder="One risk per line">{{ template.risks | join('\n') if template else '' }}</textarea>
+    </label>
+
+    <div class="form-row">
+      <label>Revision Policy
+        <textarea name="revision_policy" rows="4" placeholder="How client revisions are handled">{{ template.revision_policy if template else '' }}</textarea>
+      </label>
+      <label>Testing Strategy
+        <textarea name="testing_strategy" rows="4" placeholder="How validation and QA should work">{{ template.testing_strategy if template else '' }}</textarea>
+      </label>
+    </div>
+
+    <label>Client Fit Notes
+      <textarea name="client_fit" rows="4" placeholder="What kind of client should choose this model">{{ template.client_fit if template else '' }}</textarea>
+    </label>
+
+    <div class="btn-group" style="justify-content:flex-start">
+      <button type="submit" class="btn btn-primary">{% if template %}Save Changes{% else %}Create Template{% endif %}</button>
+      <a class="btn btn-secondary" href="{% if template %}{{ url_for('wft.sdlc_template_detail', template_id=template.id) }}{% else %}{{ url_for('wft.sdlc_templates') }}{% endif %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

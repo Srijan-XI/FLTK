@@ -109,6 +109,45 @@
   </div>
 </div>
 
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header-row">
+    <h2>Scoped Projects ({{ scoped_projects | length }})</h2>
+    <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.new_scoped_project', client_id=client.id) }}">+ New Scope</a>
+  </div>
+  {% if scoped_projects %}
+  <table class="data-table">
+    <thead><tr><th>Project</th><th>SDLC Model</th><th>Status</th><th>Target</th><th></th></tr></thead>
+    <tbody>
+      {% for project in scoped_projects %}
+      <tr>
+        <td>
+          <strong>{{ project.project_name }}</strong>
+          {% if project.summary %}<br><small class="muted-text">{{ project.summary }}</small>{% endif %}
+        </td>
+        <td>{{ project.template_name }}</td>
+        <td><span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">{{ project.status.replace('_', ' ') | title }}</span></td>
+        <td>{{ project.target_date or '—' }}</td>
+        <td class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.scoped_project_detail', project_id=project.id) }}">View</a>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_scoped_project', project_id=project.id) }}">Edit</a>
+          <form method="POST"
+            action="{{ url_for('wft.delete_scoped_project', project_id=project.id, return_to='client') }}"
+            onsubmit="return confirm('Delete scoped project {{ project.project_name }}?')"
+            style="display:inline">
+            <button class="btn btn-danger btn-sm">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state" style="padding:1.5rem">
+    <p>No scoped projects yet. Create one to define boundaries before work starts.</p>
+  </div>
+  {% endif %}
+</div>
+
 <!-- Interaction timeline -->
 <div class="card" style="margin-top:1.25rem">
   <div class="card-header-row">

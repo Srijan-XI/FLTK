@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}SDLC Templates{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🧩 SDLC Templates</h1>
+    <p class="subtitle" style="margin-bottom:0">Choose, edit, and reuse SDLC models to define delivery boundaries before taking a project.</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_sdlc_templates') }}">⬇ Export CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.scoped_projects') }}">🗂 Scoped Projects</a>
+    <a class="btn btn-primary" href="{{ url_for('wft.new_sdlc_template') }}">+ New Template</a>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ templates | length }}</span>
+    <span class="isb-lbl">Visible Templates</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val success">{{ stats.total_projects }}</span>
+    <span class="isb-lbl">Scoped Projects</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ stats.by_model | length }}</span>
+    <span class="isb-lbl">Models In Use</span>
+  </div>
+</div>
+
+<form method="GET" action="{{ url_for('wft.sdlc_templates') }}" class="card" style="margin-bottom:1.5rem; padding:1rem">
+  <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
+    <input type="text" name="q" value="{{ query }}" class="search-input" style="width:260px"
+      placeholder="Search by name, summary, or tag" />
+    <button type="submit" class="btn btn-primary">Filter</button>
+    {% if query %}<a class="btn btn-secondary" href="{{ url_for('wft.sdlc_templates') }}">Clear</a>{% endif %}
+  </div>
+</form>
+
+{% if templates %}
+<div class="card-grid">
+  {% for template in templates %}
+  <a class="card template-card" href="{{ url_for('wft.sdlc_template_detail', template_id=template.id) }}" style="text-decoration:none">
+    <div class="card-header-row" style="margin-bottom:.5rem">
+      <h2 style="margin:0">{{ template.name }}</h2>
+      {% if template.built_in %}
+      <span class="badge" style="background:rgba(48,217,136,.2);color:var(--success)">Built-in</span>
+      {% else %}
+      <span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">Custom</span>
+      {% endif %}
+    </div>
+    <p class="muted-text" style="min-height:3.2rem">{{ template.summary }}</p>
+    <p style="margin:.75rem 0"><strong>Best for:</strong> {{ template.best_for }}</p>
+    <p class="muted-text">{{ template.phases | length }} phases · {{ template.deliverables | length }} deliverables</p>
+    {% if template.tags %}
+    <p class="muted-text" style="margin-top:.65rem">Tags: {{ template.tags | join(', ') }}</p>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🧩</div>
+  <p>No templates matched the current filter.</p>
+</div>
+{% endif %}
+{% endblock %}

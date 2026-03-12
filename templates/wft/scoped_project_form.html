@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{% if project %}Edit Scoped Project{% else %}New Scoped Project{% endif %}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{% if project %}{{ url_for('wft.scoped_project_detail', project_id=project.id) }}{% else %}{{ url_for('wft.scoped_projects') }}{% endif %}">← Back</a>
+<h1 class="page-title">{% if project %}Edit Scoped Project{% else %}Create Scoped Project{% endif %}</h1>
+
+<div class="card">
+  <form method="POST">
+    <div class="form-row">
+      <label>Client *
+        <select name="client_id" required>
+          <option value="">Select client</option>
+          {% for client in clients %}
+          <option value="{{ client.id }}" {% if (project and project.client_id == client.id) or (not project and selected_client_id == client.id) %}selected{% endif %}>{{ client.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>SDLC Template *
+        <select name="template_id" required>
+          <option value="">Select model</option>
+          {% for template in templates %}
+          <option value="{{ template.id }}" {% if (project and project.template_id == template.id) or (not project and selected_template_id == template.id) %}selected{% endif %}>{{ template.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Project Name *
+        <input type="text" name="project_name" required value="{{ project.project_name if project else '' }}" placeholder="Client website redesign" />
+      </label>
+      <label>Status
+        <select name="status">
+          {% for status in statuses %}
+          <option value="{{ status }}" {% if (project and project.status == status) or (not project and status == 'draft') %}selected{% endif %}>{{ status.replace('_', ' ') | title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <label>Project Summary
+      <textarea name="summary" rows="3" placeholder="High-level summary of the scoped engagement">{{ project.summary if project else (selected_template.summary if selected_template else '') }}</textarea>
+    </label>
+
+    <div class="form-row">
+      <label>Objectives
+        <textarea name="objectives" rows="6" placeholder="One objective per line">{{ project.objectives | join('\n') if project else '' }}</textarea>
+      </label>
+      <label>Deliverables
+        <textarea name="deliverables" rows="6" placeholder="One deliverable per line">{{ project.deliverables | join('\n') if project else (selected_template.deliverables | join('\n') if selected_template else '') }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Scope In
+        <textarea name="scope_in" rows="6" placeholder="Included work items">{{ project.scope_in | join('\n') if project else '' }}</textarea>
+      </label>
+      <label>Scope Out
+        <textarea name="scope_out" rows="6" placeholder="Explicit exclusions">{{ project.scope_out | join('\n') if project else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Milestones
+        <textarea name="milestones" rows="6" placeholder="One milestone per line">{{ project.milestones | join('\n') if project else (selected_template.phases | join('\n') if selected_template else '') }}</textarea>
+      </label>
+      <label>Acceptance Criteria
+        <textarea name="acceptance_criteria" rows="6" placeholder="One criterion per line">{{ project.acceptance_criteria | join('\n') if project else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Change Control
+        <textarea name="change_control" rows="4" placeholder="How scope changes are handled">{{ project.change_control if project else (selected_template.scope_controls | join('\n') if selected_template else '') }}</textarea>
+      </label>
+      <label>Revision Policy
+        <textarea name="revision_policy" rows="4" placeholder="How revisions are approved and billed">{{ project.revision_policy if project else (selected_template.revision_policy if selected_template else '') }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Communication Plan
+        <textarea name="communication_plan" rows="4" placeholder="Meeting cadence, reporting, review windows">{{ project.communication_plan if project else '' }}</textarea>
+      </label>
+      <label>Notes
+        <textarea name="notes" rows="4" placeholder="Extra assumptions or risks">{{ project.notes if project else '' }}</textarea>
+      </label>
+    </div>
+
+    <div class="form-row">
+      <label>Start Date
+        <input type="date" name="start_date" value="{{ project.start_date if project else '' }}" />
+      </label>
+      <label>Target Date
+        <input type="date" name="target_date" value="{{ project.target_date if project else '' }}" />
+      </label>
+    </div>
+
+    <div class="btn-group" style="justify-content:flex-start">
+      <button type="submit" class="btn btn-primary">{% if project %}Save Changes{% else %}Save Scoped Project{% endif %}</button>
+      <a class="btn btn-secondary" href="{% if project %}{{ url_for('wft.scoped_project_detail', project_id=project.id) }}{% else %}{{ url_for('wft.scoped_projects') }}{% endif %}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

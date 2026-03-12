@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>{{ project.project_name }}</title>
+  <style>
+    body { font-family: Arial, sans-serif; color: #111; margin: 28px; line-height: 1.5; }
+    h1, h2 { color: #1f4fbf; margin-bottom: 8px; }
+    .meta { color: #555; margin-bottom: 16px; }
+    .section { margin-top: 18px; }
+    ul, ol { margin: 8px 0 0 20px; }
+    .grid { display: block; }
+    .box { margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>{{ project.project_name }}</h1>
+  <p class="meta">Client: {{ project.client_name }} | SDLC Model: {{ project.template_name }} | Status: {{ project.status.replace('_', ' ') | title }}</p>
+  <p>{{ project.summary }}</p>
+
+  {% if template %}
+  <div class="section">
+    <h2>Template Fit</h2>
+    <p>{{ template.best_for }}</p>
+  </div>
+  {% endif %}
+
+  <div class="section box">
+    <h2>Objectives</h2>
+    <ul>{% for item in project.objectives %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+
+  <div class="section box">
+    <h2>Scope In</h2>
+    <ul>{% for item in project.scope_in %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+
+  <div class="section box">
+    <h2>Scope Out</h2>
+    <ul>{% for item in project.scope_out %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+
+  <div class="section box">
+    <h2>Deliverables</h2>
+    <ul>{% for item in project.deliverables %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+
+  <div class="section box">
+    <h2>Milestones</h2>
+    <ol>{% for item in project.milestones %}<li>{{ item }}</li>{% endfor %}</ol>
+  </div>
+
+  <div class="section box">
+    <h2>Acceptance Criteria</h2>
+    <ul>{% for item in project.acceptance_criteria %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+
+  <div class="section box">
+    <h2>Change Control</h2>
+    <p style="white-space:pre-line">{{ project.change_control }}</p>
+  </div>
+
+  <div class="section box">
+    <h2>Revision Policy</h2>
+    <p style="white-space:pre-line">{{ project.revision_policy }}</p>
+  </div>
+
+  <div class="section box">
+    <h2>Communication Plan</h2>
+    <p style="white-space:pre-line">{{ project.communication_plan }}</p>
+  </div>
+
+  <div class="section box">
+    <h2>Notes</h2>
+    <p style="white-space:pre-line">{{ project.notes }}</p>
+  </div>
+</body>
+</html>

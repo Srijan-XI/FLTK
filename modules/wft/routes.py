@@ -3,6 +3,28 @@ from modules.wft import wft_bp
 import modules.wft.helpers as h
 
 
+def _render_pdf_response(template_name: str, context: dict, filename: str,
+                         fallback_endpoint: str, **fallback_values):
+    try:
+        from xhtml2pdf import pisa
+        import io
+        html = render_template(template_name, **context)
+        buf = io.BytesIO()
+        pisa_status = pisa.CreatePDF(html, dest=buf)
+        if pisa_status.err:
+            flash("PDF generation failed.", "error")
+            return redirect(url_for(fallback_endpoint, **fallback_values))
+        buf.seek(0)
+        return Response(
+            buf.read(),
+            mimetype="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except ImportError:
+        flash("PDF export requires xhtml2pdf. Run: pip install xhtml2pdf", "error")
+        return redirect(url_for(fallback_endpoint, **fallback_values))
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 @wft_bp.route("/settings", methods=["GET", "POST"])
@@ -49,6 +71,399 @@ def template_detail(key):
         flash("Template not found.", "error")
         return redirect(url_for("wft.templates"))
     return render_template("wft/template_detail.html", tmpl=tmpl, key=key)
+
+
+# ── SDLC Templates ───────────────────────────────────────────────────────────
+
+@wft_bp.route("/sdlc/templates")
+def sdlc_templates():
+    templates = h.get_sdlc_templates()
+    query = request.args.get("q", "").strip().lower()
+    if query:
+        templates = [
+            template for template in templates
+            if query in template.get("name", "").lower()
+            or query in template.get("summary", "").lower()
+            or query in " ".join(template.get("tags", [])).lower()
+        ]
+    return render_template(
+        "wft/sdlc_templates.html",
+        templates=templates,
+        stats=h.scoped_project_stats(),
+        query=query,
+    )
+
+
+@wft_bp.route("/sdlc/templates/new", methods=["GET", "POST"])
+def new_sdlc_template():
+    if request.method == "POST":
+        f = request.form
+        name = f.get("name", "").strip()
+        if not name:
+            flash("Template name is required.", "error")
+            return redirect(url_for("wft.new_sdlc_template"))
+        template = h.add_sdlc_template(
+            name=name,
+            summary=f.get("summary", ""),
+            best_for=f.get("best_for", ""),
+            phases=f.get("phases", ""),
+            deliverables=f.get("deliverables", ""),
+            scope_controls=f.get("scope_controls", ""),
+            strengths=f.get("strengths", ""),
+            risks=f.get("risks", ""),
+            revision_policy=f.get("revision_policy", ""),
+            testing_strategy=f.get("testing_strategy", ""),
+            client_fit=f.get("client_fit", ""),
+            tags=f.get("tags", ""),
+        )
+        flash("SDLC template created.", "success")
+        return redirect(url_for("wft.sdlc_template_detail", template_id=template["id"]))
+    return render_template("wft/sdlc_template_form.html", template=None)
+
+
+@wft_bp.route("/sdlc/templates/<int:template_id>")
+def sdlc_template_detail(template_id):
+    template = h.get_sdlc_template(template_id)
+    if not template:
+        flash("SDLC template not found.", "error")
+        return redirect(url_for("wft.sdlc_templates"))
+    project_count = sum(
+        1 for project in h.get_scoped_projects() if project.get("template_id") == template_id
+    )
+    return render_template(
+        "wft/sdlc_template_detail.html",
+        template=template,
+        project_count=project_count,
+    )
+
+
+@wft_bp.route("/sdlc/templates/<int:template_id>/edit", methods=["GET", "POST"])
+def edit_sdlc_template(template_id):
+    template = h.get_sdlc_template(template_id)
+    if not template:
+        flash("SDLC template not found.", "error")
+        return redirect(url_for("wft.sdlc_templates"))
+
+    if request.method == "POST":
+        f = request.form
+        name = f.get("name", "").strip()
+        if not name:
+            flash("Template name is required.", "error")
+            return redirect(url_for("wft.edit_sdlc_template", template_id=template_id))
+        h.update_sdlc_template(
+            template_id=template_id,
+            name=name,
+            summary=f.get("summary", ""),
+            best_for=f.get("best_for", ""),
+            phases=f.get("phases", ""),
+            deliverables=f.get("deliverables", ""),
+            scope_controls=f.get("scope_controls", ""),
+            strengths=f.get("strengths", ""),
+            risks=f.get("risks", ""),
+            revision_policy=f.get("revision_policy", ""),
+            testing_strategy=f.get("testing_strategy", ""),
+            client_fit=f.get("client_fit", ""),
+            tags=f.get("tags", ""),
+        )
+        flash("SDLC template updated.", "success")
+        return redirect(url_for("wft.sdlc_template_detail", template_id=template_id))
+
+    return render_template("wft/sdlc_template_form.html", template=template)
+
+
+@wft_bp.route("/sdlc/templates/<int:template_id>/delete", methods=["POST"])
+def delete_sdlc_template(template_id):
+    if any(project.get("template_id") == template_id for project in h.get_scoped_projects()):
+        flash("This template is already used by scoped projects and cannot be removed.", "error")
+        return redirect(url_for("wft.sdlc_template_detail", template_id=template_id))
+    h.delete_sdlc_template(template_id)
+    flash("SDLC template deleted.", "info")
+    return redirect(url_for("wft.sdlc_templates"))
+
+
+@wft_bp.route("/sdlc/templates/export")
+def export_sdlc_templates():
+    import csv
+    import io
+
+    templates = h.get_sdlc_templates()
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "ID", "Name", "Summary", "Best For", "Phases", "Deliverables",
+        "Scope Controls", "Strengths", "Risks", "Revision Policy",
+        "Testing Strategy", "Client Fit", "Tags",
+    ])
+    for template in templates:
+        writer.writerow([
+            template["id"],
+            template["name"],
+            template.get("summary", ""),
+            template.get("best_for", ""),
+            " | ".join(template.get("phases", [])),
+            " | ".join(template.get("deliverables", [])),
+            " | ".join(template.get("scope_controls", [])),
+            " | ".join(template.get("strengths", [])),
+            " | ".join(template.get("risks", [])),
+            template.get("revision_policy", ""),
+            template.get("testing_strategy", ""),
+            template.get("client_fit", ""),
+            ", ".join(template.get("tags", [])),
+        ])
+    return Response(
+        out.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sdlc-templates.csv"},
+    )
+
+
+@wft_bp.route("/sdlc/templates/<int:template_id>/print")
+def print_sdlc_template(template_id):
+    template = h.get_sdlc_template(template_id)
+    if not template:
+        flash("SDLC template not found.", "error")
+        return redirect(url_for("wft.sdlc_templates"))
+    return render_template("wft/sdlc_template_print.html", template=template)
+
+
+@wft_bp.route("/sdlc/templates/<int:template_id>/pdf")
+def pdf_sdlc_template(template_id):
+    template = h.get_sdlc_template(template_id)
+    if not template:
+        flash("SDLC template not found.", "error")
+        return redirect(url_for("wft.sdlc_templates"))
+    filename = f"{template['slug'] or template['id']}.pdf"
+    return _render_pdf_response(
+        "wft/sdlc_template_print.html",
+        {"template": template},
+        filename,
+        "wft.sdlc_template_detail",
+        template_id=template_id,
+    )
+
+
+# ── Scoped Projects ─────────────────────────────────────────────────────────
+
+@wft_bp.route("/sdlc/projects")
+def scoped_projects():
+    selected_client = request.args.get("client_id", type=int)
+    projects = h.get_scoped_projects()
+    if selected_client:
+        projects = [project for project in projects if project.get("client_id") == selected_client]
+    return render_template(
+        "wft/scoped_projects.html",
+        projects=projects,
+        clients=h.get_clients(),
+        selected_client=selected_client,
+        stats=h.scoped_project_stats(),
+    )
+
+
+@wft_bp.route("/sdlc/projects/new", methods=["GET", "POST"])
+def new_scoped_project():
+    clients = h.get_clients()
+    templates = h.get_sdlc_templates()
+    selected_client_id = request.args.get("client_id", type=int)
+    selected_template_id = request.args.get("template_id", type=int)
+    selected_template = h.get_sdlc_template(selected_template_id) if selected_template_id else None
+
+    if request.method == "POST":
+        f = request.form
+        client_id = f.get("client_id", type=int)
+        template_id = f.get("template_id", type=int)
+        project_name = f.get("project_name", "").strip()
+        if not client_id or not any(client["id"] == client_id for client in clients):
+            flash("Select a valid client.", "error")
+            return redirect(url_for("wft.new_scoped_project", client_id=selected_client_id, template_id=selected_template_id))
+        if not template_id or not h.get_sdlc_template(template_id):
+            flash("Select a valid SDLC template.", "error")
+            return redirect(url_for("wft.new_scoped_project", client_id=selected_client_id, template_id=selected_template_id))
+        if not project_name:
+            flash("Project name is required.", "error")
+            return redirect(url_for("wft.new_scoped_project", client_id=selected_client_id, template_id=selected_template_id))
+        project = h.add_scoped_project(
+            client_id=client_id,
+            template_id=template_id,
+            project_name=project_name,
+            summary=f.get("summary", ""),
+            objectives=f.get("objectives", ""),
+            scope_in=f.get("scope_in", ""),
+            scope_out=f.get("scope_out", ""),
+            deliverables=f.get("deliverables", ""),
+            milestones=f.get("milestones", ""),
+            change_control=f.get("change_control", ""),
+            revision_policy=f.get("revision_policy", ""),
+            communication_plan=f.get("communication_plan", ""),
+            acceptance_criteria=f.get("acceptance_criteria", ""),
+            notes=f.get("notes", ""),
+            status=f.get("status", "draft"),
+            start_date=f.get("start_date", ""),
+            target_date=f.get("target_date", ""),
+        )
+        flash("Scoped project saved.", "success")
+        return redirect(url_for("wft.scoped_project_detail", project_id=project["id"]))
+
+    return render_template(
+        "wft/scoped_project_form.html",
+        project=None,
+        clients=clients,
+        templates=templates,
+        statuses=h.PROJECT_STATUS_OPTIONS,
+        selected_client_id=selected_client_id,
+        selected_template_id=selected_template_id,
+        selected_template=selected_template,
+    )
+
+
+@wft_bp.route("/sdlc/projects/<int:project_id>")
+def scoped_project_detail(project_id):
+    project = h.get_scoped_project(project_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    template = h.get_sdlc_template(project.get("template_id"))
+    return render_template("wft/scoped_project_detail.html", project=project, template=template)
+
+
+@wft_bp.route("/sdlc/projects/<int:project_id>/edit", methods=["GET", "POST"])
+def edit_scoped_project(project_id):
+    project = h.get_scoped_project(project_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    clients = h.get_clients()
+    templates = h.get_sdlc_templates()
+
+    if request.method == "POST":
+        f = request.form
+        client_id = f.get("client_id", type=int)
+        template_id = f.get("template_id", type=int)
+        project_name = f.get("project_name", "").strip()
+        if not client_id or not any(client["id"] == client_id for client in clients):
+            flash("Select a valid client.", "error")
+            return redirect(url_for("wft.edit_scoped_project", project_id=project_id))
+        if not template_id or not h.get_sdlc_template(template_id):
+            flash("Select a valid SDLC template.", "error")
+            return redirect(url_for("wft.edit_scoped_project", project_id=project_id))
+        if not project_name:
+            flash("Project name is required.", "error")
+            return redirect(url_for("wft.edit_scoped_project", project_id=project_id))
+        h.update_scoped_project(
+            project_id=project_id,
+            client_id=client_id,
+            template_id=template_id,
+            project_name=project_name,
+            summary=f.get("summary", ""),
+            objectives=f.get("objectives", ""),
+            scope_in=f.get("scope_in", ""),
+            scope_out=f.get("scope_out", ""),
+            deliverables=f.get("deliverables", ""),
+            milestones=f.get("milestones", ""),
+            change_control=f.get("change_control", ""),
+            revision_policy=f.get("revision_policy", ""),
+            communication_plan=f.get("communication_plan", ""),
+            acceptance_criteria=f.get("acceptance_criteria", ""),
+            notes=f.get("notes", ""),
+            status=f.get("status", "draft"),
+            start_date=f.get("start_date", ""),
+            target_date=f.get("target_date", ""),
+        )
+        flash("Scoped project updated.", "success")
+        return redirect(url_for("wft.scoped_project_detail", project_id=project_id))
+
+    return render_template(
+        "wft/scoped_project_form.html",
+        project=project,
+        clients=clients,
+        templates=templates,
+        statuses=h.PROJECT_STATUS_OPTIONS,
+        selected_client_id=project.get("client_id"),
+        selected_template_id=project.get("template_id"),
+        selected_template=h.get_sdlc_template(project.get("template_id")),
+    )
+
+
+@wft_bp.route("/sdlc/projects/<int:project_id>/delete", methods=["POST"])
+def delete_scoped_project(project_id):
+    project = h.get_scoped_project(project_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    client_id = project.get("client_id")
+    h.delete_scoped_project(project_id)
+    flash("Scoped project deleted.", "info")
+    if request.args.get("return_to") == "client" and client_id:
+        return redirect(url_for("wft.crm_client", client_id=client_id))
+    return redirect(url_for("wft.scoped_projects"))
+
+
+@wft_bp.route("/sdlc/projects/export")
+def export_scoped_projects():
+    import csv
+    import io
+
+    projects = h.get_scoped_projects()
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow([
+        "ID", "Project Name", "Client", "Template", "Status", "Start Date",
+        "Target Date", "Summary", "Objectives", "Scope In", "Scope Out",
+        "Deliverables", "Milestones", "Change Control", "Revision Policy",
+        "Communication Plan", "Acceptance Criteria", "Notes",
+    ])
+    for project in projects:
+        writer.writerow([
+            project["id"],
+            project["project_name"],
+            project.get("client_name", ""),
+            project.get("template_name", ""),
+            project.get("status", ""),
+            project.get("start_date", ""),
+            project.get("target_date", ""),
+            project.get("summary", ""),
+            " | ".join(project.get("objectives", [])),
+            " | ".join(project.get("scope_in", [])),
+            " | ".join(project.get("scope_out", [])),
+            " | ".join(project.get("deliverables", [])),
+            " | ".join(project.get("milestones", [])),
+            project.get("change_control", ""),
+            project.get("revision_policy", ""),
+            project.get("communication_plan", ""),
+            " | ".join(project.get("acceptance_criteria", [])),
+            project.get("notes", ""),
+        ])
+    return Response(
+        out.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=scoped-projects.csv"},
+    )
+
+
+@wft_bp.route("/sdlc/projects/<int:project_id>/print")
+def print_scoped_project(project_id):
+    project = h.get_scoped_project(project_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    template = h.get_sdlc_template(project.get("template_id"))
+    return render_template("wft/scoped_project_print.html", project=project, template=template)
+
+
+@wft_bp.route("/sdlc/projects/<int:project_id>/pdf")
+def pdf_scoped_project(project_id):
+    project = h.get_scoped_project(project_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    template = h.get_sdlc_template(project.get("template_id"))
+    filename = f"{project['project_name'].replace(' ', '-').lower()}.pdf"
+    return _render_pdf_response(
+        "wft/scoped_project_print.html",
+        {"project": project, "template": template},
+        filename,
+        "wft.scoped_project_detail",
+        project_id=project_id,
+    )
 
 
 # ── Client Tracker ───────────────────────────────────────────────────────────
@@ -462,7 +877,14 @@ def tax_estimator():
 @wft_bp.route("/search")
 def search():
     q = request.args.get("q", "").strip()
-    results = h.global_search(q) if q else {"clients": [], "invoices": [], "hours": [], "expenses": []}
+    results = h.global_search(q) if q else {
+        "clients": [],
+        "invoices": [],
+        "hours": [],
+        "expenses": [],
+        "sdlc_templates": [],
+        "scoped_projects": [],
+    }
     total = sum(len(v) for v in results.values())
     return render_template("wft/search.html", results=results, query=q, total=total)
 
@@ -532,11 +954,13 @@ def crm_client(client_id):
     total_paid = round(sum(i["total"] for i in invoices
                            if i.get("status") == "paid"), 2)
     cfg = h.get_settings()
+    scoped_projects = h.get_client_scoped_projects(client_id)
     return render_template(
         "wft/crm_client.html",
         client=client,
         interactions=interactions,
         invoices=invoices[:5],
+        scoped_projects=scoped_projects,
         total_hours=total_hours,
         total_billed=total_billed,
         total_paid=total_paid,

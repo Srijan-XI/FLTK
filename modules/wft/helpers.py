@@ -47,6 +47,349 @@ CURRENCY_OPTIONS = {
     "JPY": "¥", "CAD": "C$", "AUD": "A$", "CHF": "CHF",
 }
 
+SDLC_TEMPLATE_FILE = "sdlc_templates.json"
+SCOPED_PROJECT_FILE = "scoped_projects.json"
+
+PROJECT_STATUS_OPTIONS = ["draft", "active", "on_hold", "completed"]
+
+DEFAULT_SDLC_TEMPLATES = [
+    {
+        "name": "Waterfall Model",
+        "slug": "waterfall-model",
+        "summary": "A sequential delivery model with fixed stages and strong upfront scope definition.",
+        "best_for": "Stable requirements, fixed budgets, regulated delivery, and clearly approved handoffs.",
+        "phases": [
+            "Requirements and stakeholder sign-off",
+            "System and UI design",
+            "Implementation",
+            "Testing and acceptance",
+            "Deployment and handover",
+        ],
+        "deliverables": [
+            "Signed requirements document",
+            "Architecture and design pack",
+            "Milestone plan",
+            "Test report and acceptance checklist",
+        ],
+        "scope_controls": [
+            "Changes require written approval before entering a new phase",
+            "Late changes affect timeline and budget",
+            "Client approvals close each phase before the next starts",
+        ],
+        "strengths": [
+            "Clear scope boundary",
+            "Predictable milestones",
+            "Easy to document and price",
+        ],
+        "risks": [
+            "Weak fit for changing requirements",
+            "Feedback arrives late",
+            "Rework can become expensive",
+        ],
+        "revision_policy": "One review window per milestone, with change requests estimated separately after sign-off.",
+        "testing_strategy": "Formal QA after implementation plus milestone acceptance review.",
+        "client_fit": "Clients who want certainty, strong documentation, and strict control over scope.",
+        "tags": ["fixed-scope", "documentation", "sequential"],
+    },
+    {
+        "name": "Prototyping Model",
+        "slug": "prototyping-model",
+        "summary": "An iterative model focused on validating unclear requirements through quick prototypes.",
+        "best_for": "UI-heavy work, discovery projects, and clients who need to see the concept before approving build scope.",
+        "phases": [
+            "Requirement discovery",
+            "Prototype planning",
+            "Prototype build",
+            "Client feedback and revision",
+            "Final scope freeze and production build",
+        ],
+        "deliverables": [
+            "Prototype brief",
+            "Interactive wireframe or mockup",
+            "Feedback summary",
+            "Approved build scope",
+        ],
+        "scope_controls": [
+            "Prototype feedback is limited to concept validation before production",
+            "Production scope is frozen after prototype approval",
+            "New feature requests after approval move to a change backlog",
+        ],
+        "strengths": [
+            "Clarifies vague requirements early",
+            "Reduces approval risk",
+            "Improves stakeholder confidence",
+        ],
+        "risks": [
+            "Clients may confuse prototype with final product",
+            "Extra revisions can stretch discovery",
+            "Scope freeze must be explicit",
+        ],
+        "revision_policy": "Prototype includes defined feedback rounds; production revisions are governed by the approved scope.",
+        "testing_strategy": "Prototype usability review followed by production QA after final build.",
+        "client_fit": "Clients with evolving ideas who need visual validation before committing budget.",
+        "tags": ["discovery", "ui", "validation"],
+    },
+    {
+        "name": "Spiral Model",
+        "slug": "spiral-model",
+        "summary": "A risk-driven model combining iteration, planning, and validation in controlled cycles.",
+        "best_for": "Complex systems, high-risk technical work, and projects with repeated assessment needs.",
+        "phases": [
+            "Objective and risk planning",
+            "Risk analysis",
+            "Build or prototype cycle",
+            "Review and next-cycle planning",
+        ],
+        "deliverables": [
+            "Risk register",
+            "Cycle plan",
+            "Iteration output",
+            "Review notes and decision log",
+        ],
+        "scope_controls": [
+            "Each cycle must define goals, risks, and approval criteria",
+            "Scope changes are evaluated against risk and cost impact",
+            "No new cycle starts without retrospective review",
+        ],
+        "strengths": [
+            "Strong risk management",
+            "Flexible planning",
+            "Good for large unknowns",
+        ],
+        "risks": [
+            "Can be process-heavy for small projects",
+            "Requires disciplined client involvement",
+            "Budget can expand without cycle control",
+        ],
+        "revision_policy": "Revisions are captured inside cycle planning and estimated before the next cycle begins.",
+        "testing_strategy": "Validation at the end of each spiral cycle with updated risk review.",
+        "client_fit": "Clients handling uncertainty, integration risk, or complex stakeholder demands.",
+        "tags": ["risk-driven", "complex", "iterative"],
+    },
+    {
+        "name": "Agile Model",
+        "slug": "agile-model",
+        "summary": "A sprint-based model that prioritizes incremental delivery, collaboration, and adaptation.",
+        "best_for": "Fast-moving product work, evolving requirements, and clients open to backlog-based prioritization.",
+        "phases": [
+            "Backlog setup and prioritization",
+            "Sprint planning",
+            "Sprint execution",
+            "Sprint review and retrospective",
+            "Release planning",
+        ],
+        "deliverables": [
+            "Prioritized backlog",
+            "Sprint goal",
+            "Demo-ready increment",
+            "Retrospective notes",
+        ],
+        "scope_controls": [
+            "Scope is controlled at sprint level, not through unlimited requests",
+            "Changes enter the backlog and compete for priority",
+            "Sprint commitments are protected until review",
+        ],
+        "strengths": [
+            "Adapts to feedback quickly",
+            "Frequent delivery and visibility",
+            "Strong client collaboration",
+        ],
+        "risks": [
+            "Requires disciplined backlog ownership",
+            "Clients may expect unlimited flexibility",
+            "Scope creep occurs without sprint boundaries",
+        ],
+        "revision_policy": "New requests are backlog items and do not interrupt the current sprint unless explicitly re-scoped.",
+        "testing_strategy": "Continuous QA during each sprint, with acceptance review during demo.",
+        "client_fit": "Clients comfortable with incremental releases and priority-based decision making.",
+        "tags": ["sprints", "collaboration", "adaptive"],
+    },
+    {
+        "name": "V-Model",
+        "slug": "v-model",
+        "summary": "A verification and validation model pairing each delivery stage with a matching test stage.",
+        "best_for": "Quality-sensitive work, structured specifications, and clients who want traceability from requirement to test.",
+        "phases": [
+            "Requirements definition",
+            "System and detailed design",
+            "Implementation",
+            "Unit, integration, system, and acceptance testing",
+        ],
+        "deliverables": [
+            "Requirement traceability matrix",
+            "Test plan mapped to requirements",
+            "Design artifacts",
+            "Validation evidence",
+        ],
+        "scope_controls": [
+            "Every requirement must map to a test outcome",
+            "Change requests update both specification and test coverage",
+            "Acceptance criteria must be signed before build begins",
+        ],
+        "strengths": [
+            "High traceability",
+            "Strong quality discipline",
+            "Clear acceptance checkpoints",
+        ],
+        "risks": [
+            "Rigid for rapidly changing scope",
+            "Documentation overhead",
+            "Feedback loop is slower than agile delivery",
+        ],
+        "revision_policy": "Any requirement update must revise the paired validation plan before implementation continues.",
+        "testing_strategy": "Formal verification at every mapped test level with signed acceptance.",
+        "client_fit": "Clients with compliance, QA, or contractual acceptance constraints.",
+        "tags": ["quality", "traceability", "validation"],
+    },
+    {
+        "name": "Incremental Model",
+        "slug": "incremental-model",
+        "summary": "A phased delivery model that releases the product in smaller functional increments.",
+        "best_for": "Projects that need faster partial value without waiting for the whole system to finish.",
+        "phases": [
+            "Core scope planning",
+            "Increment definition",
+            "Build and test increment",
+            "Release and feedback",
+            "Next increment planning",
+        ],
+        "deliverables": [
+            "Increment roadmap",
+            "Release list by phase",
+            "Tested increment deliverables",
+            "Release notes",
+        ],
+        "scope_controls": [
+            "Each increment has its own approved scope",
+            "New requests are assigned to future increments",
+            "Current increment changes require re-estimation",
+        ],
+        "strengths": [
+            "Faster business value",
+            "Lower delivery risk per release",
+            "Simpler prioritization",
+        ],
+        "risks": [
+            "Architecture can suffer without a core plan",
+            "Integration issues may accumulate",
+            "Clients may over-compress later increments",
+        ],
+        "revision_policy": "Changes after an increment is approved are moved into the next increment unless a re-scope is approved.",
+        "testing_strategy": "Test each increment independently and confirm regression coverage before release.",
+        "client_fit": "Clients who want staged delivery and phased payments.",
+        "tags": ["phased", "roadmap", "delivery"],
+    },
+    {
+        "name": "Big Bang Model",
+        "slug": "big-bang-model",
+        "summary": "A lightweight model with minimal formal planning, suitable only for very small or experimental work.",
+        "best_for": "Short experiments, proofs of concept, and low-risk internal ideas with flexible outcomes.",
+        "phases": [
+            "Idea and rough goal setting",
+            "Direct build",
+            "Review and refine",
+        ],
+        "deliverables": [
+            "Experiment summary",
+            "Prototype or proof of concept",
+            "Outcome notes",
+        ],
+        "scope_controls": [
+            "Use only on low-risk, low-dependency work",
+            "Set an explicit effort cap before starting",
+            "Do not convert into production work without re-scoping",
+        ],
+        "strengths": [
+            "Very fast start",
+            "Low process overhead",
+            "Good for experimentation",
+        ],
+        "risks": [
+            "High uncertainty",
+            "Weak predictability",
+            "Easy path to uncontrolled scope",
+        ],
+        "revision_policy": "Revisions are handled informally but must stay inside the agreed effort cap.",
+        "testing_strategy": "Ad hoc validation appropriate for prototype or concept-level work only.",
+        "client_fit": "Clients explicitly accepting exploration and uncertainty.",
+        "tags": ["experimental", "prototype", "lightweight"],
+    },
+    {
+        "name": "Iterative Model",
+        "slug": "iterative-model",
+        "summary": "A repeated refinement model where the solution evolves through planned cycles.",
+        "best_for": "Projects where the product is expected to mature through feedback and repeated improvement.",
+        "phases": [
+            "Baseline scope and success criteria",
+            "Iteration planning",
+            "Build and evaluate iteration",
+            "Refinement and next iteration planning",
+        ],
+        "deliverables": [
+            "Iteration objectives",
+            "Updated feature set",
+            "Feedback summary",
+            "Iteration comparison notes",
+        ],
+        "scope_controls": [
+            "Each iteration must have a defined objective",
+            "Feedback is prioritized for the next loop instead of expanding the current one",
+            "Iteration count or time cap should be agreed upfront",
+        ],
+        "strengths": [
+            "Continuous improvement",
+            "Good learning loop",
+            "Works well for product refinement",
+        ],
+        "risks": [
+            "Can drift without strong iteration goals",
+            "Clients may expect endless refinement",
+            "Budget control must be explicit",
+        ],
+        "revision_policy": "Feedback is consolidated into the next iteration plan; extra iterations require approval.",
+        "testing_strategy": "Test at the end of each cycle and compare against prior iteration outcomes.",
+        "client_fit": "Clients who want progressive refinement instead of a single final reveal.",
+        "tags": ["refinement", "feedback", "cycles"],
+    },
+    {
+        "name": "Rapid Application Development Model",
+        "slug": "rapid-application-development-model",
+        "summary": "A fast, collaborative model built around quick prototyping and time-boxed delivery.",
+        "best_for": "Short timelines, app-like interfaces, and clients ready to provide rapid feedback.",
+        "phases": [
+            "Requirements workshop",
+            "Rapid prototype and component planning",
+            "Construction in short cycles",
+            "Cutover and acceptance",
+        ],
+        "deliverables": [
+            "Workshop outcomes",
+            "Time-boxed release plan",
+            "Prototype or low-code components",
+            "Acceptance-ready build",
+        ],
+        "scope_controls": [
+            "Timeline is fixed; lower-priority requests move out of the time box",
+            "Client feedback windows are scheduled and limited",
+            "Scope is pruned to protect delivery date",
+        ],
+        "strengths": [
+            "Fast turnaround",
+            "Early visibility",
+            "Good for UI-heavy delivery",
+        ],
+        "risks": [
+            "Needs strong client availability",
+            "Can sacrifice architecture quality if rushed",
+            "Scope discipline must be strict",
+        ],
+        "revision_policy": "Requests are prioritized into the current time box only if they fit the agreed release window.",
+        "testing_strategy": "Frequent functional checks during rapid builds and final acceptance review before cutover.",
+        "client_fit": "Clients prioritizing speed and collaboration over heavy documentation.",
+        "tags": ["fast", "time-boxed", "collaborative"],
+    },
+]
+
 
 def get_settings() -> dict:
     if not os.path.exists(SETTINGS_FILE):
@@ -60,6 +403,317 @@ def get_settings() -> dict:
             return data
     except (json.JSONDecodeError, IOError):
         return DEFAULT_SETTINGS.copy()
+
+
+def _slugify(value: str) -> str:
+    cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value.strip())
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-") or "item"
+
+
+def _text_to_list(value: str | list | None) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if not value:
+        return []
+    return [line.strip(" -\t") for line in str(value).splitlines() if line.strip()]
+
+
+def _normalize_tags(value: str | list | None) -> list[str]:
+    if isinstance(value, list):
+        return [str(tag).strip() for tag in value if str(tag).strip()]
+    if not value:
+        return []
+    return [tag.strip() for tag in str(value).split(",") if tag.strip()]
+
+
+def _client_lookup() -> dict:
+    return {client["id"]: client for client in get_clients()}
+
+
+def _template_lookup() -> dict:
+    return {template["id"]: template for template in get_sdlc_templates()}
+
+
+def _normalize_sdlc_template(raw: dict, *, template_id: int | None = None,
+                             built_in: bool | None = None) -> dict:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    name = (raw.get("name") or "Untitled Template").strip()
+    return {
+        "id": template_id if template_id is not None else raw.get("id"),
+        "name": name,
+        "slug": _slugify(raw.get("slug") or name),
+        "summary": (raw.get("summary") or "").strip(),
+        "best_for": (raw.get("best_for") or "").strip(),
+        "phases": _text_to_list(raw.get("phases")),
+        "deliverables": _text_to_list(raw.get("deliverables")),
+        "scope_controls": _text_to_list(raw.get("scope_controls")),
+        "strengths": _text_to_list(raw.get("strengths")),
+        "risks": _text_to_list(raw.get("risks")),
+        "revision_policy": (raw.get("revision_policy") or "").strip(),
+        "testing_strategy": (raw.get("testing_strategy") or "").strip(),
+        "client_fit": (raw.get("client_fit") or "").strip(),
+        "tags": _normalize_tags(raw.get("tags")),
+        "built_in": raw.get("built_in") if built_in is None else built_in,
+        "created": raw.get("created") or date.today().isoformat(),
+        "updated": now,
+    }
+
+
+def _seed_sdlc_templates() -> list:
+    templates = []
+    for index, template in enumerate(DEFAULT_SDLC_TEMPLATES, start=1):
+        templates.append(_normalize_sdlc_template(
+            template,
+            template_id=index,
+            built_in=True,
+        ))
+    _save(SDLC_TEMPLATE_FILE, templates)
+    return templates
+
+
+def get_sdlc_templates() -> list:
+    templates = _load(SDLC_TEMPLATE_FILE)
+    if not templates:
+        return _seed_sdlc_templates()
+    return sorted(templates, key=lambda item: item.get("name", "").lower())
+
+
+def get_sdlc_template(template_id: int) -> dict | None:
+    templates = get_sdlc_templates()
+    return next((template for template in templates if template.get("id") == template_id), None)
+
+
+def add_sdlc_template(name: str, summary: str = "", best_for: str = "",
+                      phases: str | list | None = None,
+                      deliverables: str | list | None = None,
+                      scope_controls: str | list | None = None,
+                      strengths: str | list | None = None,
+                      risks: str | list | None = None,
+                      revision_policy: str = "",
+                      testing_strategy: str = "",
+                      client_fit: str = "",
+                      tags: str | list | None = None) -> dict:
+    templates = get_sdlc_templates()
+    template = _normalize_sdlc_template({
+        "name": name,
+        "summary": summary,
+        "best_for": best_for,
+        "phases": phases,
+        "deliverables": deliverables,
+        "scope_controls": scope_controls,
+        "strengths": strengths,
+        "risks": risks,
+        "revision_policy": revision_policy,
+        "testing_strategy": testing_strategy,
+        "client_fit": client_fit,
+        "tags": tags,
+        "created": date.today().isoformat(),
+    }, template_id=max((item["id"] for item in templates), default=0) + 1, built_in=False)
+    templates.append(template)
+    _save(SDLC_TEMPLATE_FILE, templates)
+    return template
+
+
+def update_sdlc_template(template_id: int, name: str, summary: str = "",
+                         best_for: str = "",
+                         phases: str | list | None = None,
+                         deliverables: str | list | None = None,
+                         scope_controls: str | list | None = None,
+                         strengths: str | list | None = None,
+                         risks: str | list | None = None,
+                         revision_policy: str = "",
+                         testing_strategy: str = "",
+                         client_fit: str = "",
+                         tags: str | list | None = None):
+    templates = get_sdlc_templates()
+    for index, template in enumerate(templates):
+        if template.get("id") == template_id:
+            built_in = bool(template.get("built_in"))
+            created = template.get("created")
+            templates[index] = _normalize_sdlc_template({
+                "id": template_id,
+                "name": name,
+                "summary": summary,
+                "best_for": best_for,
+                "phases": phases,
+                "deliverables": deliverables,
+                "scope_controls": scope_controls,
+                "strengths": strengths,
+                "risks": risks,
+                "revision_policy": revision_policy,
+                "testing_strategy": testing_strategy,
+                "client_fit": client_fit,
+                "tags": tags,
+                "created": created,
+            }, template_id=template_id, built_in=built_in)
+            break
+    _save(SDLC_TEMPLATE_FILE, templates)
+
+
+def delete_sdlc_template(template_id: int):
+    templates = [template for template in get_sdlc_templates() if template.get("id") != template_id]
+    _save(SDLC_TEMPLATE_FILE, templates)
+
+
+def _normalize_scoped_project(raw: dict, *, project_id: int | None = None) -> dict:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    return {
+        "id": project_id if project_id is not None else raw.get("id"),
+        "client_id": raw.get("client_id"),
+        "template_id": raw.get("template_id"),
+        "project_name": (raw.get("project_name") or "Untitled Project").strip(),
+        "summary": (raw.get("summary") or "").strip(),
+        "objectives": _text_to_list(raw.get("objectives")),
+        "scope_in": _text_to_list(raw.get("scope_in")),
+        "scope_out": _text_to_list(raw.get("scope_out")),
+        "deliverables": _text_to_list(raw.get("deliverables")),
+        "milestones": _text_to_list(raw.get("milestones")),
+        "change_control": (raw.get("change_control") or "").strip(),
+        "revision_policy": (raw.get("revision_policy") or "").strip(),
+        "communication_plan": (raw.get("communication_plan") or "").strip(),
+        "acceptance_criteria": _text_to_list(raw.get("acceptance_criteria")),
+        "notes": (raw.get("notes") or "").strip(),
+        "status": raw.get("status") if raw.get("status") in PROJECT_STATUS_OPTIONS else "draft",
+        "start_date": (raw.get("start_date") or "").strip(),
+        "target_date": (raw.get("target_date") or "").strip(),
+        "created": raw.get("created") or date.today().isoformat(),
+        "updated": now,
+    }
+
+
+def _attach_project_context(project: dict) -> dict:
+    clients = _client_lookup()
+    templates = _template_lookup()
+    client = clients.get(project.get("client_id"))
+    template = templates.get(project.get("template_id"))
+    return {
+        **project,
+        "client_name": client.get("name") if client else "Unknown",
+        "template_name": template.get("name") if template else "Unknown",
+    }
+
+
+def get_scoped_projects() -> list:
+    projects = _load(SCOPED_PROJECT_FILE)
+    hydrated = [_attach_project_context(project) for project in projects]
+    return sorted(hydrated, key=lambda item: item.get("updated", ""), reverse=True)
+
+
+def get_scoped_project(project_id: int) -> dict | None:
+    projects = _load(SCOPED_PROJECT_FILE)
+    project = next((item for item in projects if item.get("id") == project_id), None)
+    return _attach_project_context(project) if project else None
+
+
+def get_client_scoped_projects(client_id: int) -> list:
+    return [project for project in get_scoped_projects() if project.get("client_id") == client_id]
+
+
+def add_scoped_project(client_id: int, template_id: int, project_name: str,
+                       summary: str = "",
+                       objectives: str | list | None = None,
+                       scope_in: str | list | None = None,
+                       scope_out: str | list | None = None,
+                       deliverables: str | list | None = None,
+                       milestones: str | list | None = None,
+                       change_control: str = "",
+                       revision_policy: str = "",
+                       communication_plan: str = "",
+                       acceptance_criteria: str | list | None = None,
+                       notes: str = "",
+                       status: str = "draft",
+                       start_date: str = "",
+                       target_date: str = "") -> dict:
+    projects = _load(SCOPED_PROJECT_FILE)
+    project = _normalize_scoped_project({
+        "client_id": client_id,
+        "template_id": template_id,
+        "project_name": project_name,
+        "summary": summary,
+        "objectives": objectives,
+        "scope_in": scope_in,
+        "scope_out": scope_out,
+        "deliverables": deliverables,
+        "milestones": milestones,
+        "change_control": change_control,
+        "revision_policy": revision_policy,
+        "communication_plan": communication_plan,
+        "acceptance_criteria": acceptance_criteria,
+        "notes": notes,
+        "status": status,
+        "start_date": start_date,
+        "target_date": target_date,
+        "created": date.today().isoformat(),
+    }, project_id=max((item["id"] for item in projects), default=0) + 1)
+    projects.append(project)
+    _save(SCOPED_PROJECT_FILE, projects)
+    return _attach_project_context(project)
+
+
+def update_scoped_project(project_id: int, client_id: int, template_id: int,
+                          project_name: str, summary: str = "",
+                          objectives: str | list | None = None,
+                          scope_in: str | list | None = None,
+                          scope_out: str | list | None = None,
+                          deliverables: str | list | None = None,
+                          milestones: str | list | None = None,
+                          change_control: str = "",
+                          revision_policy: str = "",
+                          communication_plan: str = "",
+                          acceptance_criteria: str | list | None = None,
+                          notes: str = "",
+                          status: str = "draft",
+                          start_date: str = "",
+                          target_date: str = ""):
+    projects = _load(SCOPED_PROJECT_FILE)
+    for index, project in enumerate(projects):
+        if project.get("id") == project_id:
+            projects[index] = _normalize_scoped_project({
+                "id": project_id,
+                "client_id": client_id,
+                "template_id": template_id,
+                "project_name": project_name,
+                "summary": summary,
+                "objectives": objectives,
+                "scope_in": scope_in,
+                "scope_out": scope_out,
+                "deliverables": deliverables,
+                "milestones": milestones,
+                "change_control": change_control,
+                "revision_policy": revision_policy,
+                "communication_plan": communication_plan,
+                "acceptance_criteria": acceptance_criteria,
+                "notes": notes,
+                "status": status,
+                "start_date": start_date,
+                "target_date": target_date,
+                "created": project.get("created"),
+            }, project_id=project_id)
+            break
+    _save(SCOPED_PROJECT_FILE, projects)
+
+
+def delete_scoped_project(project_id: int):
+    projects = [project for project in _load(SCOPED_PROJECT_FILE) if project.get("id") != project_id]
+    _save(SCOPED_PROJECT_FILE, projects)
+
+
+def scoped_project_stats() -> dict:
+    projects = get_scoped_projects()
+    by_status: dict = {}
+    by_model: dict = {}
+    for project in projects:
+        status = project.get("status", "draft")
+        by_status[status] = by_status.get(status, 0) + 1
+        model = project.get("template_name", "Unknown")
+        by_model[model] = by_model.get(model, 0) + 1
+    return {
+        "total_projects": len(projects),
+        "by_status": by_status,
+        "by_model": by_model,
+    }
 
 
 def save_settings(settings: dict):
@@ -545,7 +1199,14 @@ def get_upcoming_followups() -> list:
 def global_search(query: str) -> dict:
     q = query.lower().strip()
     if not q:
-        return {"clients": [], "invoices": [], "hours": [], "expenses": []}
+        return {
+            "clients": [],
+            "invoices": [],
+            "hours": [],
+            "expenses": [],
+            "sdlc_templates": [],
+            "scoped_projects": [],
+        }
     clients = [
         c for c in _load("clients.json")
         if q in c.get("name", "").lower()
@@ -571,8 +1232,29 @@ def global_search(query: str) -> dict:
         or q in e.get("category", "").lower()
         or q in e.get("notes", "").lower()
     ]
-    return {"clients": clients, "invoices": invoices,
-            "hours": hours, "expenses": expenses}
+    sdlc_templates = [
+        template for template in get_sdlc_templates()
+        if q in template.get("name", "").lower()
+        or q in template.get("summary", "").lower()
+        or q in template.get("best_for", "").lower()
+        or q in " ".join(template.get("tags", [])).lower()
+    ]
+    scoped_projects = [
+        project for project in get_scoped_projects()
+        if q in project.get("project_name", "").lower()
+        or q in project.get("summary", "").lower()
+        or q in project.get("notes", "").lower()
+        or q in project.get("client_name", "").lower()
+        or q in project.get("template_name", "").lower()
+    ]
+    return {
+        "clients": clients,
+        "invoices": invoices,
+        "hours": hours,
+        "expenses": expenses,
+        "sdlc_templates": sdlc_templates,
+        "scoped_projects": scoped_projects,
+    }
 
 
 # ── Profitability Report ──────────────────────────────────────────────────────
@@ -626,6 +1308,7 @@ def profitability_report() -> list:
 DATA_FILES = [
     "clients.json", "invoices.json", "workhours.json",
     "settings.json", "expenses.json", "crm_interactions.json",
+    SDLC_TEMPLATE_FILE, SCOPED_PROJECT_FILE,
 ]
 
 

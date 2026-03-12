@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ project.project_name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.scoped_projects') }}">← Back to Scoped Projects</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ project.project_name }}</h1>
+    <p class="muted-text">{{ project.client_name }} · {{ project.template_name }}</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <button class="btn btn-primary" type="button" onclick="copyProjectScope()">📋 Copy All</button>
+    <a class="btn btn-secondary" href="{{ url_for('wft.edit_scoped_project', project_id=project.id) }}">Edit</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.print_scoped_project', project_id=project.id) }}" target="_blank">Print</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.pdf_scoped_project', project_id=project.id) }}">PDF</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.crm_client', client_id=project.client_id) }}">Open Client</a>
+    <form method="POST" action="{{ url_for('wft.delete_scoped_project', project_id=project.id) }}" style="display:inline" onsubmit="return confirm('Delete this scoped project?')">
+      <button class="btn btn-danger" type="submit">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem; justify-content:flex-start">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ project.status.replace('_', ' ') | title }}</span>
+    <span class="isb-lbl">Status</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ project.start_date or '—' }}</span>
+    <span class="isb-lbl">Start</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val success">{{ project.target_date or '—' }}</span>
+    <span class="isb-lbl">Target</span>
+  </div>
+</div>
+
+<div id="project-copy-source">
+  <div class="card" style="margin-bottom:1rem">
+    <h2>Project Summary</h2>
+    <p>{{ project.summary or 'No summary provided.' }}</p>
+    {% if template %}<p class="muted-text" style="margin-top:.75rem">Template guidance: {{ template.best_for }}</p>{% endif %}
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h2>Objectives</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in project.objectives %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No objectives recorded.</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Deliverables</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in project.deliverables %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No deliverables recorded.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Scope In</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in project.scope_in %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No included scope recorded.</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Scope Out</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in project.scope_out %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No exclusions recorded.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Milestones</h2>
+      <ol style="padding-left:1.2rem">
+        {% for item in project.milestones %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No milestones recorded.</li>{% endfor %}
+      </ol>
+    </div>
+    <div class="card">
+      <h2>Acceptance Criteria</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in project.acceptance_criteria %}<li style="margin-bottom:.35rem">{{ item }}</li>{% else %}<li>No acceptance criteria recorded.</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Change Control</h2>
+      <p style="white-space:pre-line">{{ project.change_control or 'No change control recorded.' }}</p>
+    </div>
+    <div class="card">
+      <h2>Revision Policy</h2>
+      <p style="white-space:pre-line">{{ project.revision_policy or 'No revision policy recorded.' }}</p>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Communication Plan</h2>
+      <p style="white-space:pre-line">{{ project.communication_plan or 'No communication plan recorded.' }}</p>
+    </div>
+    <div class="card">
+      <h2>Notes</h2>
+      <p style="white-space:pre-line">{{ project.notes or 'No notes recorded.' }}</p>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="project-copy-data">{{ project | tojson }}</script>
+<script>
+function copyProjectScope() {
+  const projectData = JSON.parse(document.getElementById('project-copy-data').textContent);
+  const lines = [];
+  lines.push(projectData.project_name);
+  lines.push('='.repeat(projectData.project_name.length));
+  lines.push('');
+  lines.push(`Client: ${projectData.client_name || ''}`);
+  lines.push(`Model: ${projectData.template_name || ''}`);
+  lines.push(`Status: ${(projectData.status || 'draft').replaceAll('_', ' ')}`);
+  lines.push(`Summary: ${projectData.summary || ''}`);
+  lines.push('');
+  lines.push('Objectives');
+  lines.push('----------');
+  (projectData.objectives || []).forEach((item) => lines.push(`- ${item}`));
+  lines.push('');
+  lines.push('Scope In');
+  lines.push('--------');
+  (projectData.scope_in || []).forEach((item) => lines.push(`- ${item}`));
+  lines.push('');
+  lines.push('Scope Out');
+  lines.push('---------');
+  (projectData.scope_out || []).forEach((item) => lines.push(`- ${item}`));
+  lines.push('');
+  lines.push('Deliverables');
+  lines.push('------------');
+  (projectData.deliverables || []).forEach((item) => lines.push(`- ${item}`));
+  lines.push('');
+  lines.push('Milestones');
+  lines.push('----------');
+  (projectData.milestones || []).forEach((item) => lines.push(`- ${item}`));
+  lines.push('');
+  lines.push('Change Control');
+  lines.push('--------------');
+  lines.push(projectData.change_control || '');
+  lines.push('');
+  lines.push('Revision Policy');
+  lines.push('---------------');
+  lines.push(projectData.revision_policy || '');
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.querySelector('.page-header .btn-primary');
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.textContent = original; }, 1800);
+  });
+}
+</script>
+{% endblock %}

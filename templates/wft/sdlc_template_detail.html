@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.sdlc_templates') }}">← Back to SDLC Templates</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ template.name }}</h1>
+    <p class="muted-text">{{ template.summary }}</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <button class="btn btn-primary" type="button" onclick="copyTemplateDetails()">📋 Copy All</button>
+    <a class="btn btn-secondary" href="{{ url_for('wft.new_scoped_project', template_id=template.id) }}">Use for Project</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.edit_sdlc_template', template_id=template.id) }}">Edit</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.print_sdlc_template', template_id=template.id) }}" target="_blank">Print</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.pdf_sdlc_template', template_id=template.id) }}">PDF</a>
+    <form method="POST" action="{{ url_for('wft.delete_sdlc_template', template_id=template.id) }}" style="display:inline" onsubmit="return confirm('Delete this SDLC template?')">
+      <button class="btn btn-danger" type="submit">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem; justify-content:flex-start">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ template.phases | length }}</span>
+    <span class="isb-lbl">Phases</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val success">{{ template.deliverables | length }}</span>
+    <span class="isb-lbl">Deliverables</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ project_count }}</span>
+    <span class="isb-lbl">Projects Using It</span>
+  </div>
+</div>
+
+<div id="template-copy-source">
+  <div class="card" style="margin-bottom:1rem">
+    <h2>Best For</h2>
+    <p>{{ template.best_for }}</p>
+    {% if template.tags %}<p class="muted-text" style="margin-top:.75rem">Tags: {{ template.tags | join(', ') }}</p>{% endif %}
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h2>Phases</h2>
+      <ol style="padding-left:1.2rem">
+        {% for item in template.phases %}<li style="margin-bottom:.35rem">{{ item }}</li>{% endfor %}
+      </ol>
+    </div>
+    <div class="card">
+      <h2>Deliverables</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in template.deliverables %}<li style="margin-bottom:.35rem">{{ item }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Scope Controls</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in template.scope_controls %}<li style="margin-bottom:.35rem">{{ item }}</li>{% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Strengths</h2>
+      <ul style="padding-left:1.2rem">
+        {% for item in template.strengths %}<li style="margin-bottom:.35rem">{{ item }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2>Risks</h2>
+    <ul style="padding-left:1.2rem">
+      {% for item in template.risks %}<li style="margin-bottom:.35rem">{{ item }}</li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="two-col" style="margin-top:1rem">
+    <div class="card">
+      <h2>Revision Policy</h2>
+      <p>{{ template.revision_policy }}</p>
+    </div>
+    <div class="card">
+      <h2>Testing Strategy</h2>
+      <p>{{ template.testing_strategy }}</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2>Client Fit</h2>
+    <p>{{ template.client_fit }}</p>
+  </div>
+</div>
+
+<script type="application/json" id="template-copy-data">{{ template | tojson }}</script>
+<script>
+function copyTemplateDetails() {
+  const templateData = JSON.parse(document.getElementById('template-copy-data').textContent);
+  const sections = [];
+  sections.push(templateData.name);
+  sections.push('='.repeat(templateData.name.length));
+  sections.push('');
+  sections.push(`Summary: ${templateData.summary || ''}`);
+  sections.push(`Best for: ${templateData.best_for || ''}`);
+  sections.push('');
+  sections.push('Phases');
+  sections.push('------');
+  (templateData.phases || []).forEach((item) => sections.push(`- ${item}`));
+  sections.push('');
+  sections.push('Deliverables');
+  sections.push('------------');
+  (templateData.deliverables || []).forEach((item) => sections.push(`- ${item}`));
+  sections.push('');
+  sections.push('Scope Controls');
+  sections.push('--------------');
+  (templateData.scope_controls || []).forEach((item) => sections.push(`- ${item}`));
+  sections.push('');
+  sections.push('Revision Policy');
+  sections.push('---------------');
+  sections.push(templateData.revision_policy || '');
+  sections.push('');
+  sections.push('Testing Strategy');
+  sections.push('----------------');
+  sections.push(templateData.testing_strategy || '');
+  navigator.clipboard.writeText(sections.join('\n')).then(() => {
+    const btn = document.querySelector('.page-header .btn-primary');
+    const original = btn.textContent;
+    btn.textContent = 'Copied';
+    setTimeout(() => { btn.textContent = original; }, 1800);
+  });
+}
+</script>
+{% endblock %}

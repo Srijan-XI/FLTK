@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Scoped Projects{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🗂 Scoped Projects</h1>
+    <p class="subtitle" style="margin-bottom:0">Saved project scopes linked to clients and SDLC models.</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <a class="btn btn-secondary" href="{{ url_for('wft.export_scoped_projects') }}">⬇ Export CSV</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.sdlc_templates') }}">🧩 SDLC Templates</a>
+    <a class="btn btn-primary" href="{{ url_for('wft.new_scoped_project') }}">+ New Scoped Project</a>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ stats.total_projects }}</span>
+    <span class="isb-lbl">Total Projects</span>
+  </div>
+  {% for status, count in stats.by_status.items() %}
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ count }}</span>
+    <span class="isb-lbl">{{ status.replace('_', ' ') | title }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<form method="GET" action="{{ url_for('wft.scoped_projects') }}" class="card" style="margin-bottom:1.5rem; padding:1rem">
+  <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
+    <select name="client_id">
+      <option value="">All clients</option>
+      {% for client in clients %}
+      <option value="{{ client.id }}" {% if selected_client == client.id %}selected{% endif %}>{{ client.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Filter</button>
+    {% if selected_client %}<a class="btn btn-secondary" href="{{ url_for('wft.scoped_projects') }}">Clear</a>{% endif %}
+  </div>
+</form>
+
+{% if projects %}
+<div class="card">
+  <table class="data-table">
+    <thead>
+      <tr><th>Project</th><th>Client</th><th>SDLC Model</th><th>Status</th><th>Target</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for project in projects %}
+      <tr>
+        <td>
+          <strong>{{ project.project_name }}</strong>
+          {% if project.summary %}<br><small class="muted-text">{{ project.summary }}</small>{% endif %}
+        </td>
+        <td>{{ project.client_name }}</td>
+        <td>{{ project.template_name }}</td>
+        <td><span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">{{ project.status.replace('_', ' ') | title }}</span></td>
+        <td>{{ project.target_date or '—' }}</td>
+        <td class="action-cell">
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.scoped_project_detail', project_id=project.id) }}">View</a>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_scoped_project', project_id=project.id) }}">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🗂</div>
+  <p>No scoped projects yet.</p>
+</div>
+{% endif %}
+{% endblock %}
