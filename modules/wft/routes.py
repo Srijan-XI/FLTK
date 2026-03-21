@@ -249,15 +249,28 @@ def pdf_sdlc_template(template_id):
 @wft_bp.route("/sdlc/projects")
 def scoped_projects():
     selected_client = request.args.get("client_id", type=int)
+    scope_filter = request.args.get("filter", "")
     projects = h.get_scoped_projects()
     if selected_client:
         projects = [project for project in projects if project.get("client_id") == selected_client]
+    
+    # Apply scope filter if specified
+    if scope_filter:
+        scope_statuses = h.get_all_scope_statuses()
+        scope_by_id = {s["project_id"]: s for s in scope_statuses}
+        if scope_filter == "warning":
+            projects = [p for p in projects if scope_by_id.get(p["id"], {}).get("status") == "warning"]
+        elif scope_filter == "over_budget":
+            projects = [p for p in projects if scope_by_id.get(p["id"], {}).get("status") == "over_budget"]
+    
     return render_template(
         "wft/sdlc/scoped_projects.html",
         projects=projects,
         clients=h.get_clients(),
         selected_client=selected_client,
         stats=h.scoped_project_stats(),
+        scope_statuses=h.get_all_scope_statuses(),
+        scope_filter=scope_filter,
     )
 
 
@@ -324,7 +337,8 @@ def scoped_project_detail(project_id):
         flash("Scoped project not found.", "error")
         return redirect(url_for("wft.scoped_projects"))
     template = h.get_sdlc_template(project.get("template_id"))
-    return render_template("wft/sdlc/scoped_project_detail.html", project=project, template=template)
+    scope = h.get_scope_status(project_id)
+    return render_template("wft/sdlc/scoped_project_detail.html", project=project, template=template, scope=scope)
 
 
 @wft_bp.route("/sdlc/projects/<int:project_id>/edit", methods=["GET", "POST"])
