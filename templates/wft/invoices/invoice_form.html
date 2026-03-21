@@ -121,7 +121,36 @@
         <small style="display:block; margin-top:.3rem; color:var(--muted)">Optional: Include payment methods, due terms, or a thank-you message</small>
       </label>
     </fieldset>
+    <!-- PROJECT METADATA SECTION (Optional) -->
+    <fieldset style="border:none; padding:0; margin-bottom:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem">
+      <legend style="font-weight:600; font-size:1rem; margin-bottom:1rem; color:var(--text)">Project Delivery Model <span style="color:var(--muted); font-weight:400; font-size:.9rem">(Optional)</span></legend>
+      
+      <div class="form-row">
+        <label style="flex:1">SDLC Model
+          <select name="sdlc_model_id" id="sdlc-model-select" style="width:100%; margin-top:.3rem">
+            <option value="">— No model selected —</option>
+            <option value="1">Agile Model</option>
+            <option value="2">Waterfall Model</option>
+            <option value="3">Prototyping Model</option>
+            <option value="4">Spiral Model</option>
+          </select>
+          <small style="display:block; margin-top:.3rem; color:var(--muted)">Link this invoice to a project delivery methodology</small>
+        </label>
+        <label style="flex:1">Project Type
+          <input type="text" name="project_type" placeholder="e.g., Mobile App, Website, API" 
+            style="width:100%; margin-top:.3rem" />
+          <small style="display:block; margin-top:.3rem; color:var(--muted)">Optional project description</small>
+        </label>
+      </div>
 
+      <div class="form-row">
+        <label style="flex:0.8">Sprint Number
+          <input type="number" name="sprint_number" min="1" placeholder="1" 
+            style="width:100%; margin-top:.3rem" />
+          <small style="display:block; margin-top:.3rem; color:var(--muted)">If using Agile model</small>
+        </label>
+      </div>
+    </fieldset>
     <!-- ACTIONS -->
     <div style="display:flex; gap:1rem; margin-top:1.5rem">
       <button type="submit" class="btn btn-primary btn-full">Create Invoice</button>

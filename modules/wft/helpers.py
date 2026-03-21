@@ -851,9 +851,12 @@ def get_invoices() -> list:
 def create_invoice(client_name: str, items: list[dict], due_date: str,
                    notes: str = "", currency: str = "USD",
                    currency_symbol: str = "$", tax_rate: float = 0.0,
-                   exchange_rate: float = 1.0, base_currency: str = "") -> dict:
+                   exchange_rate: float = 1.0, base_currency: str = "",
+                   sdlc_model_id: int | None = None, project_type: str = "",
+                   sprint_number: int | None = None) -> dict:
     """
     items: [{"description": str, "hours": float, "rate": float}, ...]
+    Optional: sdlc_model_id (links to SDLC template), project_type, sprint_number
     """
     invoices = _load("invoices.json")
     inv_id = max((i["id"] for i in invoices), default=0) + 1
@@ -887,6 +890,15 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
         "status": "unpaid",
         "notes": notes,
     }
+    
+    # Add optional SDLC and project metadata
+    if sdlc_model_id:
+        invoice["sdlc_model_id"] = sdlc_model_id
+    if project_type:
+        invoice["project_type"] = project_type
+    if sprint_number:
+        invoice["sprint_number"] = sprint_number
+    
     invoices.append(invoice)
     _save("invoices.json", invoices)
     return invoice
@@ -2153,4 +2165,141 @@ def estimate_tax(total_income: float, tax_rate: float,
         "annual_tax": annual_tax,
         "quarterly_tax": quarterly_tax,
         "monthly_set_aside": monthly_set_aside,
+    }
+
+
+# ── N3: SCOPE CREEP DETECTOR ───────────────────────────────────────────────────
+
+def get_scope_status(project_id: int) -> dict:
+    """
+    Compare budgeted hours vs actual logged hours for a project.
+    Returns dict with status, budget_hours, actual_hours, utilisation %, warning.
+    """
+    project = get_scoped_project(project_id)
+    if not project:
+        return {}
+
+    budget_hours = project.get("budget_hours", 0)
+    client_name = project.get("client_name", "")
+
+    # Sum hours logged for this client from workhours.json
+    all_hours = get_workhours()
+    actual_hours = sum(
+        h.get("hours", 0) for h in all_hours
+        if h.get("client", "").strip().lower() == client_name.strip().lower()
+    )
+
+    # Calculate utilisation
+    if budget_hours > 0:
+        utilisation = round(actual_hours / budget_hours, 4)
+    else:
+        utilisation = None
+
+    # Determine status
+    if utilisation is None:
+        status = "no_budget"
+    elif utilisation < 0.80:
+        status = "on_track"
+    elif utilisation < 1.00:
+        status = "warning"
+    else:
+        status = "over_budget"
+
+    # Hours over budget
+    hours_over = max(0, actual_hours - budget_hours)
+
+    return {
+        "project_id": project_id,
+        "project_name": project.get("name", ""),
+        "client_name": client_name,
+        "status": status,
+        "budget_hours": budget_hours,
+        "actual_hours": actual_hours,
+        "utilisation": utilisation,
+        "utilisation_percent": round(utilisation * 100, 1) if utilisation else None,
+        "hours_over": hours_over,
+    }
+
+
+def get_all_scope_statuses() -> list:
+    """
+    Returns scope status for all active scoped projects, sorted by utilisation desc.
+    """
+    projects = get_scoped_projects()
+    statuses = [get_scope_status(p["id"]) for p in projects if p.get("id")]
+    # Sort by utilisation descending (over-budget first)
+    return sorted(
+        statuses,
+        key=lambda s: (s.get("utilisation") or -1),
+        reverse=True
+    )
+
+
+# ── N4: INVOICE AGEING REPORT ──────────────────────────────────────────────────
+
+def get_ar_ageing() -> dict:
+    """
+    Classify unpaid invoices by age into buckets: current, 1-30, 31-60, 60+.
+    Returns dict with bucket totals and per-invoice details.
+    """
+    today = date.today()
+    invoices = get_invoices()
+    unpaid = [i for i in invoices if i.get("status") != "paid"]
+
+    buckets = {
+        "current": {"total": 0.0, "count": 0, "invoices": []},
+        "1_30": {"total": 0.0, "count": 0, "invoices": []},
+        "31_60": {"total": 0.0, "count": 0, "invoices": []},
+        "60_plus": {"total": 0.0, "count": 0, "invoices": []},
+    }
+
+    for inv in unpaid:
+        due_date_str = inv.get("due_date", "")
+        try:
+            due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            # Skip invalid dates
+            continue
+
+        days_age = (today - due_date).days
+
+        # Get invoice total (multi-currency aware)
+        total = inv.get("total_base", inv.get("total", 0.0))
+
+        invoice_entry = {
+            "id": inv.get("id"),
+            "invoice_number": inv.get("invoice_number", ""),
+            "client_name": inv.get("client_name", ""),
+            "due_date": due_date_str,
+            "days_age": days_age,
+            "total": total,
+            "status": inv.get("status", "unpaid"),
+        }
+
+        if days_age < 0:
+            bucket = "current"
+        elif days_age <= 30:
+            bucket = "1_30"
+        elif days_age <= 60:
+            bucket = "31_60"
+        else:
+            bucket = "60_plus"
+
+        buckets[bucket]["total"] += total
+        buckets[bucket]["count"] += 1
+        buckets[bucket]["invoices"].append(invoice_entry)
+
+    # Sort invoices within each bucket by due_date
+    for bucket in buckets.values():
+        bucket["invoices"].sort(key=lambda x: x["due_date"], reverse=True)
+
+    # Calculate grand total
+    grand_total = sum(b["total"] for b in buckets.values())
+
+    return {
+        "current": buckets["current"],
+        "1_30": buckets["1_30"],
+        "31_60": buckets["31_60"],
+        "60_plus": buckets["60_plus"],
+        "grand_total": grand_total,
     }

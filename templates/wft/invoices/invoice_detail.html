@@ -78,6 +78,24 @@
   </div>
   {% endif %}
 
+  <!-- SDLC Model Reference -->
+  {% if inv.get('sdlc_model_id') %}
+    {% set selected_model = sdlc_templates | selectattr('id', 'equalto', inv['sdlc_model_id']) | first %}
+    {% if selected_model %}
+    <div style="margin-top:1.5rem; padding:1rem; background:var(--hover); border-radius:var(--radius); border-left:4px solid var(--accent)">
+      <p style="margin:0 0 .5rem 0; font-weight:600; color:var(--text)">Project Delivery Model for This Invoice</p>
+      <p style="margin:.5rem 0; font-size:.95rem"><strong>{{ selected_model.name }}</strong> — {{ selected_model.summary }}</p>
+      <p style="margin:.5rem 0; color:var(--muted); font-size:.9rem">Best for: {{ selected_model.best_for }}</p>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  {% if inv.get('sprint_number') %}
+  <div style="margin-top:1rem; padding:.8rem; background:var(--accent); color:white; border-radius:var(--radius); font-size:.9rem">
+    <p style="margin:0"><strong>Sprint {{ inv.sprint_number }}</strong> - {{ inv.get('project_type', 'Project') }}</p>
+  </div>
+  {% endif %}
+
   <!-- Actions -->
   <div class="btn-group" style="margin-top:1.5rem; justify-content:flex-start">
     {% if inv.status != 'paid' %}
