@@ -1153,7 +1153,15 @@ def _enrich_invoice_finance(inv: dict) -> dict:
     out["adjusted_total"] = _invoice_adjusted_total(out)
     out["total_paid"] = _invoice_paid_total(out)
     out["balance_due"] = round(max(0.0, out["adjusted_total"] - out["total_paid"]), 2)
-    if out["balance_due"] <= 0.001:
+    legacy_status = str(out.get("payment_status") or out.get("status") or "").lower()
+
+    # Backward compatibility: old datasets may mark invoice paid without storing
+    # explicit payment rows. Keep those invoices paid rather than downgrading.
+    if legacy_status == "paid" and not out.get("payments") and out["total_paid"] <= 0.001:
+        out["total_paid"] = out["adjusted_total"]
+        out["balance_due"] = 0.0
+        out["payment_status"] = "paid"
+    elif out["balance_due"] <= 0.001:
         out["payment_status"] = "paid"
     elif out["total_paid"] > 0:
         out["payment_status"] = "partial"

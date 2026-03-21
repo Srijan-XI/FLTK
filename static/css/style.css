@@ -1160,6 +1160,35 @@ footer {
   word-break: break-word;
 }
 
+/* ── Integrity Scanner ───────────────────────────────────────────────────── */
+.integrity-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.integrity-table {
+  min-width: 760px;
+}
+
+.integrity-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.integrity-file,
+.integrity-code {
+  white-space: nowrap;
+}
+
+.integrity-message {
+  min-width: 320px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Accessibility preferences ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

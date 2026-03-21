@@ -2,7 +2,12 @@
 {% block title %}Integrity Scanner{% endblock %}
 
 {% block content %}
-<h1 class="page-title">🩺 Data Integrity Scanner</h1>
+<div class="page-header">
+  <h1 class="page-title">🩺 Data Integrity Scanner</h1>
+  <form method="GET" action="{{ url_for('wft.integrity_scan') }}" style="display:flex; gap:.5rem; align-items:center;">
+    <button class="btn btn-secondary btn-sm" type="submit">Refresh</button>
+  </form>
+</div>
 
 <div class="card" style="margin-bottom:1rem">
   <p style="color:var(--muted); font-size:.92rem; margin-bottom:1rem">
@@ -29,8 +34,9 @@
 <div class="card" style="margin-bottom:1rem">
   <h2>Detected Issues</h2>
   {% if report.issues %}
-  <div class="table-wrap">
-    <table class="table">
+  <p class="muted-text" style="margin-bottom:.65rem">Found {{ report.issues|length }} issue(s).</p>
+  <div class="integrity-table-wrap">
+    <table class="data-table integrity-table">
       <thead>
         <tr>
           <th>Severity</th>
@@ -42,10 +48,14 @@
       <tbody>
         {% for issue in report.issues %}
         <tr>
-          <td>{{ issue.severity }}</td>
-          <td>{{ issue.file }}</td>
-          <td><code>{{ issue.code }}</code></td>
-          <td>{{ issue.message }}</td>
+          <td>
+            <span class="badge {{ 'badge-overdue' if issue.severity == 'critical' else ('badge-partial' if issue.severity == 'major' else 'badge-saved') }}">
+              {{ issue.severity }}
+            </span>
+          </td>
+          <td class="integrity-file">{{ issue.file }}</td>
+          <td class="integrity-code"><code>{{ issue.code }}</code></td>
+          <td class="integrity-message">{{ issue.message }}</td>
         </tr>
         {% endfor %}
       </tbody>
