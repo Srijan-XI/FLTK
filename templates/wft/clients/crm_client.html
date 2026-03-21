@@ -227,6 +227,43 @@
   {% endif %}
 </div>
 
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header-row">
+    <h2>📎 Attachments</h2>
+  </div>
+  <form method="POST" action="{{ url_for('wft.upload_attachment') }}" enctype="multipart/form-data" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.75rem">
+    <input type="hidden" name="entity_type" value="client">
+    <input type="hidden" name="entity_id" value="{{ client.id }}">
+    <input type="hidden" name="back" value="{{ url_for('wft.crm_client', client_id=client.id) }}">
+    <input type="file" name="file" required>
+    <button class="btn btn-secondary" type="submit">Upload</button>
+  </form>
+
+  {% if attachments %}
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+    <tbody>
+      {% for a in attachments %}
+      <tr>
+        <td>{{ a.original_name }}</td>
+        <td>{{ a.size }} B</td>
+        <td>{{ a.uploaded_at }}</td>
+        <td>
+          <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.download_attachment', attachment_id=a.id) }}">Download</a>
+          <form method="POST" action="{{ url_for('wft.delete_attachment', attachment_id=a.id) }}" style="display:inline">
+            <input type="hidden" name="back" value="{{ url_for('wft.crm_client', client_id=client.id) }}">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted-text">No attachments yet for this client.</p>
+  {% endif %}
+</div>
+
 <!-- Interaction timeline -->
 <div class="card" style="margin-top:1.25rem">
   <div class="card-header-row">

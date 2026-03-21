@@ -24,7 +24,8 @@
       <p><strong>{{ inv.client_name }}</strong></p>
     </div>
     <div style="text-align:right">
-      <span class="badge badge-{{ inv.status }}" style="font-size:.9rem">{{ inv.status | upper }}</span>
+      <span class="badge badge-{{ inv.payment_status or inv.status }}" style="font-size:.9rem">{{ (inv.payment_status or inv.status) | upper }}</span>
+      <p class="muted-text" style="margin-top:.35rem">Balance Due: {{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.balance_due or inv.total) }}</p>
     </div>
   </div>
 
@@ -77,6 +78,94 @@
     <strong>Notes:</strong> {{ inv.notes }}
   </div>
   {% endif %}
+
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Payments & Adjustments (Ledger)</h2>
+    <div class="two-col">
+      <form method="POST" action="{{ url_for('wft.invoice_add_payment', inv_id=inv.id) }}">
+        <label>Payment Amount
+          <input type="number" name="amount" min="0.01" step="0.01" required>
+        </label>
+        <label>Payment Date
+          <input type="date" name="paid_date" value="{{ inv.issue_date }}">
+        </label>
+        <label>Note
+          <input type="text" name="note" placeholder="Bank transfer, UPI, etc.">
+        </label>
+        <button type="submit" class="btn btn-primary" style="margin-top:.5rem">+ Add Payment</button>
+      </form>
+
+      <form method="POST" action="{{ url_for('wft.invoice_add_adjustment', inv_id=inv.id) }}">
+        <label>Adjustment Amount (+/-)
+          <input type="number" name="amount" step="0.01" required>
+        </label>
+        <label>Reason
+          <input type="text" name="reason" placeholder="Change order, discount, correction" required>
+        </label>
+        <p class="muted-text" style="font-size:.82rem">Use positive values to increase amount due and negative for discount/credit.</p>
+        <button type="submit" class="btn btn-secondary" style="margin-top:.5rem">+ Add Adjustment</button>
+      </form>
+    </div>
+
+    {% if ledger %}
+    <div style="overflow-x:auto; margin-top:1rem">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Note</th>
+            <th>Delta</th>
+            <th>Running Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in ledger %}
+          <tr>
+            <td>{{ row.date }}</td>
+            <td>{{ row.type }}</td>
+            <td>{{ row.note }}</td>
+            <td class="{{ 'danger' if row.delta > 0 else 'success' }}">{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(row.delta) }}</td>
+            <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(row.running_balance) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Attachments</h2>
+    <form method="POST" action="{{ url_for('wft.upload_attachment') }}" enctype="multipart/form-data" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center">
+      <input type="hidden" name="entity_type" value="invoice">
+      <input type="hidden" name="entity_id" value="{{ inv.id }}">
+      <input type="hidden" name="back" value="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">
+      <input type="file" name="file" required>
+      <button class="btn btn-secondary" type="submit">Upload</button>
+    </form>
+    {% if attachments %}
+    <table class="data-table" style="margin-top:.75rem">
+      <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th><th></th></tr></thead>
+      <tbody>
+        {% for a in attachments %}
+        <tr>
+          <td>{{ a.original_name }}</td>
+          <td>{{ a.size }} B</td>
+          <td>{{ a.uploaded_at }}</td>
+          <td>
+            <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.download_attachment', attachment_id=a.id) }}">Download</a>
+            <form method="POST" action="{{ url_for('wft.delete_attachment', attachment_id=a.id) }}" style="display:inline">
+              <input type="hidden" name="back" value="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">
+              <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+  </div>
 
   <div class="card" style="margin-top:1rem">
     <h2 style="margin-top:0">Recurring Invoice</h2>

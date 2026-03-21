@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Data Import Center{% endblock %}
+
+{% block content %}
+<h1 class="page-title">📥 Data Import Center</h1>
+
+<div class="card" style="margin-bottom:1rem">
+  <p class="muted-text" style="margin-bottom:.75rem">
+    Import legacy data from CSV with validation and preview before commit.
+    Supported datasets: clients, workhours, expenses, invoices.
+  </p>
+  <form method="POST" action="{{ url_for('wft.import_center') }}" enctype="multipart/form-data" class="two-col" style="align-items:end">
+    <input type="hidden" name="action" value="preview">
+    <label>Dataset
+      <select name="dataset" required>
+        <option value="" {% if not dataset %}selected{% endif %}>Select...</option>
+        <option value="clients" {% if dataset == 'clients' %}selected{% endif %}>Clients</option>
+        <option value="workhours" {% if dataset == 'workhours' %}selected{% endif %}>Work Hours</option>
+        <option value="expenses" {% if dataset == 'expenses' %}selected{% endif %}>Expenses</option>
+        <option value="invoices" {% if dataset == 'invoices' %}selected{% endif %}>Invoices</option>
+      </select>
+    </label>
+    <label>CSV File
+      <input type="file" name="file" accept=".csv" required>
+    </label>
+    <button class="btn btn-primary" type="submit">Preview Import</button>
+  </form>
+</div>
+
+{% if preview_errors %}
+<div class="card" style="border-color:var(--danger)">
+  <h2 style="color:var(--danger)">Validation Errors</h2>
+  <ul>
+    {% for e in preview_errors %}
+    <li>{{ e }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if preview_rows %}
+<div class="card" style="padding:0; overflow:hidden; margin-top:1rem">
+  <div style="padding:.75rem 1rem; display:flex; align-items:center; justify-content:space-between; gap:.5rem; flex-wrap:wrap">
+    <strong>Preview Rows (showing first {{ preview_rows | length }})</strong>
+    <form method="POST" action="{{ url_for('wft.import_center') }}">
+      <input type="hidden" name="action" value="commit">
+      <button class="btn btn-primary" type="submit">Commit Import</button>
+    </form>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        {% for key in preview_rows[0].keys() %}
+        <th>{{ key }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in preview_rows %}
+      <tr>
+        {% for value in row.values() %}
+        <td>{{ value }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if has_preview and not preview_rows %}
+<div class="card">
+  <p>Preview is ready in session. Click commit to import.</p>
+  <form method="POST" action="{{ url_for('wft.import_center') }}">
+    <input type="hidden" name="action" value="commit">
+    <button class="btn btn-primary" type="submit">Commit Import</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

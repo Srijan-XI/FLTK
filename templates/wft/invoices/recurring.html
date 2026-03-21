@@ -25,7 +25,30 @@
     <span class="isb-val warning">{{ due | length }}</span>
     <span class="isb-lbl">Due Now</span>
   </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val danger">{{ reminders | length }}</span>
+    <span class="isb-lbl">Reminder Triggers</span>
+  </div>
 </div>
+
+{% if reminders %}
+<div class="card" style="margin-bottom:1rem; padding:0; overflow:hidden">
+  <table class="data-table">
+    <thead><tr><th>Invoice</th><th>Client</th><th>Offset Trigger</th><th></th></tr></thead>
+    <tbody>
+      {% for r in reminders %}
+      <tr>
+        <td>{{ r.invoice_number }}</td>
+        <td>{{ r.client_name }}</td>
+        <td><span class="badge badge-overdue">{{ r.label }}</span></td>
+        <td><a class="btn btn-danger btn-sm" href="{{ url_for('wft.invoice_reminder', inv_id=r.invoice_id) }}">Open Reminder</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
 {% if templates %}
 <div class="card">

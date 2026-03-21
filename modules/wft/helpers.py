@@ -10,6 +10,7 @@ import calendar
 import tempfile
 import io
 import zipfile
+import csv
 from datetime import date, datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
@@ -22,6 +23,9 @@ QUOTE_FILE = "quotes.json"
 TIMER_FILE = "timer_sessions.json"
 CALENDAR_FILE = "calendar_blocks.json"
 MILESTONE_FILE = "milestones.json"
+CHANGE_ORDER_FILE = "change_orders.json"
+INVOICE_VIEWS_FILE = "invoice_views.json"
+ATTACHMENT_META_FILE = "attachments.json"
 
 CONTRACT_TYPES = [
     "Service Agreement",
@@ -1127,7 +1131,38 @@ def delete_client(client_id: int):
 # ── Invoices ─────────────────────────────────────────────────────────────────
 
 def get_invoices() -> list:
-    return _load("invoices.json")
+    return [_enrich_invoice_finance(inv) for inv in _load("invoices.json")]
+
+
+def _invoice_adjusted_total(inv: dict) -> float:
+    base_total = float(inv.get("total", 0.0) or 0.0)
+    adjustments = inv.get("adjustments") or []
+    adj_sum = sum(float(a.get("amount", 0.0) or 0.0) for a in adjustments if isinstance(a, dict))
+    return round(base_total + adj_sum, 2)
+
+
+def _invoice_paid_total(inv: dict) -> float:
+    payments = inv.get("payments") or []
+    return round(sum(float(p.get("amount", 0.0) or 0.0) for p in payments if isinstance(p, dict)), 2)
+
+
+def _enrich_invoice_finance(inv: dict) -> dict:
+    out = dict(inv)
+    out.setdefault("payments", [])
+    out.setdefault("adjustments", [])
+    out["adjusted_total"] = _invoice_adjusted_total(out)
+    out["total_paid"] = _invoice_paid_total(out)
+    out["balance_due"] = round(max(0.0, out["adjusted_total"] - out["total_paid"]), 2)
+    if out["balance_due"] <= 0.001:
+        out["payment_status"] = "paid"
+    elif out["total_paid"] > 0:
+        out["payment_status"] = "partial"
+    else:
+        out["payment_status"] = "unpaid"
+
+    # Keep legacy `status` in sync for existing views/tests.
+    out["status"] = out["payment_status"]
+    return out
 
 
 def create_invoice(client_name: str, items: list[dict], due_date: str,
@@ -1170,6 +1205,9 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
         "base_currency": base_currency,
         "total_base": total_base,
         "status": "unpaid",
+        "payment_status": "unpaid",
+        "payments": [],
+        "adjustments": [],
         "notes": notes,
     }
     
@@ -1183,19 +1221,118 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
     
     invoices.append(invoice)
     _save("invoices.json", invoices)
-    return invoice
+    return _enrich_invoice_finance(invoice)
 
 
 def mark_invoice_paid(inv_id: int):
-    invoices = _load("invoices.json")
-    found = False
-    for inv in invoices:
-        if inv["id"] == inv_id:
-            inv["status"] = "paid"
-            found = True
-    if not found:
+    invoice = get_invoice(inv_id)
+    if not invoice:
         raise ValueError(f"Invoice #{inv_id} not found.")
-    _save("invoices.json", invoices)
+    remaining = round(float(invoice.get("balance_due", 0.0) or 0.0), 2)
+    if remaining <= 0:
+        return
+    add_invoice_payment(inv_id, amount=remaining, note="Marked paid")
+
+
+def get_invoice(inv_id: int) -> dict | None:
+    return next((inv for inv in get_invoices() if inv.get("id") == inv_id), None)
+
+
+def _update_invoice_record(inv_id: int, mutate_fn):
+    invoices = _load("invoices.json")
+    for idx, inv in enumerate(invoices):
+        if inv.get("id") != inv_id:
+            continue
+        mutate_fn(inv)
+        invoices[idx] = inv
+        _save("invoices.json", invoices)
+        return _enrich_invoice_finance(inv)
+    raise ValueError(f"Invoice #{inv_id} not found.")
+
+
+def add_invoice_payment(inv_id: int, amount: float, paid_date: str = "", method: str = "manual", note: str = "") -> dict:
+    value = round(float(amount or 0.0), 2)
+    if value <= 0:
+        raise ValueError("Payment amount must be greater than zero.")
+
+    def _mutate(inv: dict):
+        payments = inv.get("payments") or []
+        pay_id = max((p.get("id", 0) for p in payments if isinstance(p, dict)), default=0) + 1
+        payments.append({
+            "id": pay_id,
+            "date": (paid_date or date.today().isoformat()),
+            "amount": value,
+            "method": method or "manual",
+            "note": (note or "").strip(),
+            "created_at": _now_utc(),
+        })
+        inv["payments"] = payments
+        enriched = _enrich_invoice_finance(inv)
+        inv["status"] = enriched["payment_status"]
+        inv["payment_status"] = enriched["payment_status"]
+
+    return _update_invoice_record(inv_id, _mutate)
+
+
+def add_invoice_adjustment(inv_id: int, amount: float, reason: str = "") -> dict:
+    value = round(float(amount or 0.0), 2)
+    if value == 0:
+        raise ValueError("Adjustment amount cannot be zero.")
+
+    def _mutate(inv: dict):
+        adjustments = inv.get("adjustments") or []
+        adj_id = max((a.get("id", 0) for a in adjustments if isinstance(a, dict)), default=0) + 1
+        adjustments.append({
+            "id": adj_id,
+            "date": date.today().isoformat(),
+            "amount": value,
+            "reason": (reason or "Adjustment").strip(),
+            "created_at": _now_utc(),
+        })
+        inv["adjustments"] = adjustments
+        enriched = _enrich_invoice_finance(inv)
+        inv["status"] = enriched["payment_status"]
+        inv["payment_status"] = enriched["payment_status"]
+
+    return _update_invoice_record(inv_id, _mutate)
+
+
+def get_invoice_ledger(inv_id: int) -> list:
+    inv = get_invoice(inv_id)
+    if not inv:
+        return []
+    rows = [{
+        "date": inv.get("issue_date"),
+        "type": "invoice",
+        "amount": float(inv.get("total", 0.0) or 0.0),
+        "note": "Invoice issued",
+    }]
+    for adj in inv.get("adjustments", []):
+        rows.append({
+            "date": adj.get("date"),
+            "type": "adjustment",
+            "amount": float(adj.get("amount", 0.0) or 0.0),
+            "note": adj.get("reason", "Adjustment"),
+        })
+    for pay in inv.get("payments", []):
+        rows.append({
+            "date": pay.get("date"),
+            "type": "payment",
+            "amount": float(pay.get("amount", 0.0) or 0.0),
+            "note": pay.get("note") or pay.get("method", "Payment"),
+        })
+    rows.sort(key=lambda r: (r.get("date") or "", r.get("type") or ""))
+    running = 0.0
+    out = []
+    for row in rows:
+        if row["type"] in {"invoice", "adjustment"}:
+            running += row["amount"]
+            delta = row["amount"]
+        else:
+            running -= row["amount"]
+            delta = -row["amount"]
+        out.append({**row, "delta": round(delta, 2), "running_balance": round(running, 2)})
+    return out
 
 
 def get_recurring_templates() -> list:
@@ -1337,6 +1474,267 @@ def generate_all_due_recurring() -> list:
 def delete_invoice(inv_id: int):
     invoices = [i for i in _load("invoices.json") if i["id"] != inv_id]
     _save("invoices.json", invoices)
+
+
+def cashflow_forecast(days: int = 90) -> dict:
+    horizon = date.today() + timedelta(days=max(days, 1))
+    invoices = [inv for inv in get_invoices() if inv.get("payment_status") != "paid"]
+    due_recurring = get_due_recurring_invoices()
+    projects = {p.get("id"): p for p in get_scoped_projects()}
+    milestones = get_upcoming_milestones(days=max(days, 1))
+
+    items = []
+    for inv in invoices:
+        try:
+            due = date.fromisoformat(inv.get("due_date", ""))
+        except ValueError:
+            continue
+        if due > horizon:
+            continue
+        amount = float(inv.get("balance_due", inv.get("total", 0.0)) or 0.0)
+        best = amount
+        likely = amount * (0.85 if due >= date.today() else 0.7)
+        worst = amount * (0.6 if due >= date.today() else 0.35)
+        items.append({
+            "date": due.isoformat(),
+            "type": "invoice",
+            "label": inv.get("invoice_number"),
+            "amount": round(amount, 2),
+            "best": round(best, 2),
+            "likely": round(likely, 2),
+            "worst": round(worst, 2),
+        })
+
+    for template in due_recurring:
+        amount = float(template.get("total", 0.0) or 0.0)
+        due = date.today() + timedelta(days=14)
+        if due > horizon:
+            continue
+        items.append({
+            "date": due.isoformat(),
+            "type": "recurring",
+            "label": f"Recurring {template.get('invoice_number', template.get('id'))}",
+            "amount": round(amount, 2),
+            "best": round(amount * 0.9, 2),
+            "likely": round(amount * 0.7, 2),
+            "worst": round(amount * 0.45, 2),
+        })
+
+    for milestone in milestones:
+        try:
+            due = date.fromisoformat(milestone.get("due_date", ""))
+        except ValueError:
+            continue
+        if due > horizon:
+            continue
+        project = projects.get(milestone.get("project_id"), {})
+        total_value = float(project.get("total_value", 0.0) or 0.0)
+        percent = float(milestone.get("percent", 0.0) or 0.0) / 100.0
+        amount = round(total_value * percent, 2)
+        if amount <= 0:
+            continue
+        items.append({
+            "date": due.isoformat(),
+            "type": "milestone",
+            "label": f"{project.get('project_name', 'Project')} - {milestone.get('name', 'Milestone')}",
+            "amount": amount,
+            "best": round(amount * 0.95, 2),
+            "likely": round(amount * 0.75, 2),
+            "worst": round(amount * 0.5, 2),
+        })
+
+    items.sort(key=lambda x: x.get("date", ""))
+    return {
+        "horizon_days": days,
+        "items": items,
+        "totals": {
+            "best": round(sum(i["best"] for i in items), 2),
+            "likely": round(sum(i["likely"] for i in items), 2),
+            "worst": round(sum(i["worst"] for i in items), 2),
+        },
+    }
+
+
+def margin_intelligence(target_rate: float | None = None) -> dict:
+    cfg = get_settings()
+    target = float(target_rate or cfg.get("default_rate", 50.0) or 50.0)
+    rows = profitability_report()
+    alerts = [
+        {
+            "client": row.get("client"),
+            "effective_rate": row.get("effective_rate", 0.0),
+            "target_rate": target,
+        }
+        for row in rows
+        if float(row.get("effective_rate", 0.0) or 0.0) > 0 and float(row.get("effective_rate", 0.0) or 0.0) < target
+    ]
+
+    invoices = [inv for inv in get_invoices() if inv.get("payment_status") == "paid"]
+    hours = get_workhours()
+
+    by_month = {}
+    for inv in invoices:
+        month = (inv.get("issue_date") or "")[:7]
+        if not month:
+            continue
+        by_month.setdefault(month, {"paid": 0.0, "hours": 0.0})
+        by_month[month]["paid"] += float(inv.get("total", 0.0) or 0.0)
+    for entry in hours:
+        month = (entry.get("date") or "")[:7]
+        if not month:
+            continue
+        by_month.setdefault(month, {"paid": 0.0, "hours": 0.0})
+        by_month[month]["hours"] += float(entry.get("hours", 0.0) or 0.0)
+
+    month_rows = []
+    for month in sorted(by_month.keys()):
+        paid = round(by_month[month]["paid"], 2)
+        hrs = round(by_month[month]["hours"], 2)
+        eff = round(paid / hrs, 2) if hrs > 0 else 0.0
+        month_rows.append({"month": month, "paid": paid, "hours": hrs, "effective_rate": eff})
+
+    service_rollup = {}
+    for entry in hours:
+        key = (entry.get("tag") or "general").strip().lower() or "general"
+        service_rollup.setdefault(key, {"hours": 0.0, "paid": 0.0})
+        service_rollup[key]["hours"] += float(entry.get("hours", 0.0) or 0.0)
+    for inv in invoices:
+        key = (inv.get("project_type") or "general").strip().lower() or "general"
+        service_rollup.setdefault(key, {"hours": 0.0, "paid": 0.0})
+        service_rollup[key]["paid"] += float(inv.get("total", 0.0) or 0.0)
+
+    service_rows = []
+    for service, stats in sorted(service_rollup.items()):
+        hrs = round(stats["hours"], 2)
+        paid = round(stats["paid"], 2)
+        eff = round(paid / hrs, 2) if hrs > 0 else 0.0
+        service_rows.append({"service": service, "hours": hrs, "paid": paid, "effective_rate": eff})
+
+    return {
+        "target_rate": target,
+        "alerts": alerts,
+        "by_client": rows,
+        "by_month": month_rows,
+        "by_service": service_rows,
+    }
+
+
+def get_change_orders() -> list:
+    return sorted(_load(CHANGE_ORDER_FILE), key=lambda x: x.get("created_date", ""), reverse=True)
+
+
+def add_change_order(client_name: str, description: str, amount_delta: float,
+                     hours_delta: float = 0.0, quote_id: int | None = None,
+                     invoice_id: int | None = None, status: str = "draft") -> dict:
+    orders = _load(CHANGE_ORDER_FILE)
+    allowed = {"draft", "submitted", "approved", "rejected", "invoiced"}
+    status = status if status in allowed else "draft"
+    order = {
+        "id": max((o.get("id", 0) for o in orders), default=0) + 1,
+        "client_name": (client_name or "Unknown").strip(),
+        "description": (description or "").strip(),
+        "amount_delta": round(float(amount_delta or 0.0), 2),
+        "hours_delta": round(float(hours_delta or 0.0), 2),
+        "quote_id": quote_id,
+        "invoice_id": invoice_id,
+        "status": status,
+        "created_date": date.today().isoformat(),
+    }
+    orders.append(order)
+    _save(CHANGE_ORDER_FILE, orders)
+    return order
+
+
+def update_change_order_status(order_id: int, status: str, apply_to_invoice: bool = False) -> dict:
+    allowed = {"draft", "submitted", "approved", "rejected", "invoiced"}
+    if status not in allowed:
+        raise ValueError("Invalid change-order status.")
+
+    orders = _load(CHANGE_ORDER_FILE)
+    for order in orders:
+        if order.get("id") != order_id:
+            continue
+        order["status"] = status
+        if status == "approved" and apply_to_invoice and order.get("invoice_id") and float(order.get("amount_delta", 0.0) or 0.0) != 0:
+            add_invoice_adjustment(
+                int(order["invoice_id"]),
+                amount=float(order.get("amount_delta", 0.0) or 0.0),
+                reason=f"Change Order #{order_id}: {order.get('description', '')}"[:160],
+            )
+            order["status"] = "invoiced"
+        _save(CHANGE_ORDER_FILE, orders)
+        return order
+    raise ValueError("Change order not found.")
+
+
+def get_ar_risk_scores() -> list:
+    today = date.today()
+    invoices = get_invoices()
+    unpaid = [inv for inv in invoices if inv.get("payment_status") != "paid"]
+
+    # Client payment behavior: average delay on paid invoices.
+    behavior = {}
+    for inv in invoices:
+        if inv.get("payment_status") != "paid":
+            continue
+        client = inv.get("client_name", "Unknown")
+        due = inv.get("due_date")
+        payments = inv.get("payments") or []
+        if not due or not payments:
+            continue
+        try:
+            due_d = date.fromisoformat(due)
+        except ValueError:
+            continue
+        paid_dates = []
+        for p in payments:
+            try:
+                paid_dates.append(date.fromisoformat(p.get("date", "")))
+            except ValueError:
+                continue
+        if not paid_dates:
+            continue
+        delay = (min(paid_dates) - due_d).days
+        behavior.setdefault(client, []).append(delay)
+
+    out = []
+    for inv in unpaid:
+        client = inv.get("client_name", "Unknown")
+        amount = float(inv.get("balance_due", inv.get("total", 0.0)) or 0.0)
+        try:
+            due_d = date.fromisoformat(inv.get("due_date", ""))
+            days_overdue = max(0, (today - due_d).days)
+        except ValueError:
+            days_overdue = 0
+
+        avg_delay = 0.0
+        if behavior.get(client):
+            avg_delay = sum(behavior[client]) / len(behavior[client])
+
+        amount_score = min(30.0, (amount / 5000.0) * 30.0)
+        age_score = min(40.0, (days_overdue / 60.0) * 40.0)
+        behavior_score = min(30.0, max(0.0, ((avg_delay + 30) / 60.0) * 30.0))
+        score = round(amount_score + age_score + behavior_score, 1)
+
+        if score >= 75:
+            band = "high"
+        elif score >= 45:
+            band = "medium"
+        else:
+            band = "low"
+
+        out.append({
+            "invoice_id": inv.get("id"),
+            "invoice_number": inv.get("invoice_number"),
+            "client_name": client,
+            "balance_due": round(amount, 2),
+            "days_overdue": days_overdue,
+            "avg_client_delay": round(avg_delay, 1),
+            "risk_score": score,
+            "risk_band": band,
+        })
+
+    return sorted(out, key=lambda r: r.get("risk_score", 0.0), reverse=True)
 
 
 # ── Contracts ───────────────────────────────────────────────────────────────
@@ -2545,6 +2943,7 @@ DATA_FILES = [
     CLIENT_NOTES_FILE, CONTRACT_FILE, QUOTE_FILE,
     TIMER_FILE, CALENDAR_FILE,
     "weekly_reviews.json", MILESTONE_FILE,
+    CHANGE_ORDER_FILE,
 ]
 
 
@@ -3328,3 +3727,334 @@ def get_financial_snapshot() -> dict:
         "months": months,
         "top_clients": top_clients,
     }
+
+
+# ── N9: OPERATIONAL EFFICIENCY (LEVEL 2) ───────────────────────────────────
+
+def _parse_csv_rows(file_bytes: bytes) -> list[dict]:
+    text = file_bytes.decode("utf-8-sig", errors="replace")
+    reader = csv.DictReader(io.StringIO(text))
+    rows = []
+    for row in reader:
+        rows.append({(k or "").strip(): (v or "").strip() for k, v in row.items()})
+    return rows
+
+
+def import_preview(dataset: str, file_name: str, file_bytes: bytes) -> tuple[list[dict], list[str]]:
+    dataset = (dataset or "").strip().lower()
+    errors = []
+
+    if not file_name.lower().endswith(".csv"):
+        return [], ["Only CSV import is supported in this build."]
+
+    rows = _parse_csv_rows(file_bytes)
+    if not rows:
+        return [], ["No rows found in uploaded file."]
+
+    required = {
+        "clients": {"name", "email"},
+        "workhours": {"task", "client", "hours", "date"},
+        "expenses": {"title", "amount", "category", "date"},
+        "invoices": {"client_name", "due_date", "total"},
+    }
+    if dataset not in required:
+        return [], ["Unsupported dataset for import."]
+
+    headers = set(rows[0].keys())
+    missing = [h for h in required[dataset] if h not in headers]
+    if missing:
+        errors.append(f"Missing required column(s): {', '.join(missing)}")
+
+    normalized = []
+    for idx, row in enumerate(rows, start=1):
+        try:
+            if dataset == "clients":
+                normalized.append({
+                    "name": row.get("name", ""),
+                    "email": row.get("email", ""),
+                    "phone": row.get("phone", ""),
+                    "company": row.get("company", ""),
+                    "default_rate": float(row.get("default_rate", 0) or 0),
+                })
+            elif dataset == "workhours":
+                normalized.append({
+                    "task": row.get("task", ""),
+                    "client": row.get("client", ""),
+                    "hours": float(row.get("hours", 0) or 0),
+                    "date": row.get("date", ""),
+                    "notes": row.get("notes", ""),
+                })
+            elif dataset == "expenses":
+                normalized.append({
+                    "title": row.get("title", ""),
+                    "amount": float(row.get("amount", 0) or 0),
+                    "category": row.get("category", "Other") or "Other",
+                    "date": row.get("date", ""),
+                    "notes": row.get("notes", ""),
+                })
+            elif dataset == "invoices":
+                normalized.append({
+                    "client_name": row.get("client_name", ""),
+                    "due_date": row.get("due_date", ""),
+                    "total": float(row.get("total", 0) or 0),
+                    "status": (row.get("status", "unpaid") or "unpaid").lower(),
+                })
+        except ValueError:
+            errors.append(f"Row {idx}: invalid numeric value.")
+    return normalized, errors
+
+
+def import_commit(dataset: str, rows: list[dict]) -> int:
+    dataset = (dataset or "").strip().lower()
+    created = 0
+    for row in rows:
+        if dataset == "clients":
+            if not row.get("name"):
+                continue
+            add_client(
+                name=row.get("name", "").strip(),
+                email=row.get("email", "").strip(),
+                phone=row.get("phone", ""),
+                company=row.get("company", ""),
+                default_rate=float(row.get("default_rate", 0) or 0),
+            )
+            created += 1
+        elif dataset == "workhours":
+            if not row.get("task"):
+                continue
+            log_hours(
+                task=row.get("task", ""),
+                client=row.get("client", "Unknown"),
+                hours=float(row.get("hours", 0) or 0),
+                log_date=row.get("date", "") or date.today().isoformat(),
+                notes=row.get("notes", ""),
+            )
+            created += 1
+        elif dataset == "expenses":
+            if not row.get("title"):
+                continue
+            add_expense(
+                title=row.get("title", ""),
+                amount=float(row.get("amount", 0) or 0),
+                category=row.get("category", "Other"),
+                expense_date=row.get("date", "") or date.today().isoformat(),
+                notes=row.get("notes", ""),
+            )
+            created += 1
+        elif dataset == "invoices":
+            if not row.get("client_name"):
+                continue
+            inv = create_invoice(
+                client_name=row.get("client_name", ""),
+                items=[{"description": "Imported", "hours": 1.0, "rate": float(row.get("total", 0) or 0)}],
+                due_date=row.get("due_date", "") or date.today().isoformat(),
+            )
+            if row.get("status") == "paid":
+                mark_invoice_paid(inv["id"])
+            created += 1
+    return created
+
+
+def recurring_reminders(offsets: list[int] | None = None) -> list[dict]:
+    offsets = offsets or [7, 3, -3]
+    today = date.today()
+    items = []
+    for inv in get_invoices():
+        if inv.get("payment_status") == "paid":
+            continue
+        try:
+            due = date.fromisoformat(inv.get("due_date", ""))
+        except ValueError:
+            continue
+        days_to_due = (due - today).days
+        for off in offsets:
+            if off >= 0 and days_to_due == off:
+                items.append({
+                    "invoice_id": inv.get("id"),
+                    "invoice_number": inv.get("invoice_number"),
+                    "client_name": inv.get("client_name"),
+                    "label": f"T-{off}",
+                    "days_to_due": days_to_due,
+                })
+            if off < 0 and days_to_due == off:
+                items.append({
+                    "invoice_id": inv.get("id"),
+                    "invoice_number": inv.get("invoice_number"),
+                    "client_name": inv.get("client_name"),
+                    "label": f"Overdue +{abs(off)}",
+                    "days_to_due": days_to_due,
+                })
+    return sorted(items, key=lambda i: (i.get("days_to_due", 0), i.get("invoice_number", "")))
+
+
+def filter_invoices(invoices: list[dict], filters: dict) -> list[dict]:
+    client = (filters.get("client") or "").strip().lower()
+    status = (filters.get("status") or "").strip().lower()
+    start = (filters.get("start_date") or "").strip()
+    end = (filters.get("end_date") or "").strip()
+
+    out = invoices
+    if client:
+        out = [inv for inv in out if client in str(inv.get("client_name", "")).lower()]
+    if status:
+        out = [inv for inv in out if str(inv.get("payment_status") or inv.get("status", "")).lower() == status]
+    if start:
+        out = [inv for inv in out if str(inv.get("issue_date", "")) >= start]
+    if end:
+        out = [inv for inv in out if str(inv.get("issue_date", "")) <= end]
+    return out
+
+
+def get_invoice_saved_views() -> list[dict]:
+    views = _safe_load_path(os.path.join(DATA_DIR, INVOICE_VIEWS_FILE), [])
+    if not isinstance(views, list):
+        return []
+    return views
+
+
+def save_invoice_view(name: str, filters: dict) -> dict:
+    label = (name or "").strip()
+    if not label:
+        raise ValueError("View name is required.")
+    views = get_invoice_saved_views()
+    views = [v for v in views if v.get("name") != label]
+    view = {
+        "name": label,
+        "filters": {
+            "client": filters.get("client", ""),
+            "status": filters.get("status", ""),
+            "start_date": filters.get("start_date", ""),
+            "end_date": filters.get("end_date", ""),
+        },
+        "created_at": _now_utc(),
+    }
+    views.append(view)
+    _write_json_atomic_path(os.path.join(DATA_DIR, INVOICE_VIEWS_FILE), views)
+    return view
+
+
+def delete_invoice_view(name: str) -> bool:
+    views = get_invoice_saved_views()
+    remaining = [v for v in views if v.get("name") != name]
+    if len(remaining) == len(views):
+        return False
+    _write_json_atomic_path(os.path.join(DATA_DIR, INVOICE_VIEWS_FILE), remaining)
+    return True
+
+
+def bulk_invoice_action(ids: list[int], action: str) -> int:
+    valid = [int(x) for x in ids if str(x).isdigit()]
+    if not valid:
+        return 0
+    count = 0
+    if action == "mark_paid":
+        for inv_id in valid:
+            try:
+                mark_invoice_paid(inv_id)
+                count += 1
+            except ValueError:
+                pass
+        return count
+    if action == "delete":
+        for inv_id in valid:
+            delete_invoice(inv_id)
+            count += 1
+        return count
+    if action == "mark_unpaid":
+        invoices = _load("invoices.json")
+        for inv in invoices:
+            if inv.get("id") in valid:
+                inv["status"] = "unpaid"
+                inv["payment_status"] = "unpaid"
+                inv["payments"] = []
+                count += 1
+        _save("invoices.json", invoices)
+        return count
+    return 0
+
+
+def invoice_ids_to_csv(ids: list[int]) -> str:
+    valid = {int(x) for x in ids if str(x).isdigit()}
+    rows = [inv for inv in get_invoices() if inv.get("id") in valid]
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(["Invoice #", "Client", "Issue Date", "Due Date", "Total", "Paid", "Balance", "Status"])
+    for inv in rows:
+        writer.writerow([
+            inv.get("invoice_number", ""),
+            inv.get("client_name", ""),
+            inv.get("issue_date", ""),
+            inv.get("due_date", ""),
+            inv.get("total", 0.0),
+            inv.get("total_paid", 0.0),
+            inv.get("balance_due", 0.0),
+            inv.get("payment_status", inv.get("status", "unpaid")),
+        ])
+    return out.getvalue()
+
+
+def _attachment_dir() -> str:
+    return os.path.join(DATA_DIR, "attachments")
+
+
+def _attachment_path() -> str:
+    return os.path.join(DATA_DIR, ATTACHMENT_META_FILE)
+
+
+def add_attachment(entity_type: str, entity_id: int, file_name: str, file_bytes: bytes) -> dict:
+    os.makedirs(_attachment_dir(), exist_ok=True)
+    original = os.path.basename(file_name or "file")
+    safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "_" for ch in original)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S%f")
+    stored = f"{stamp}_{safe_name}"
+    path = os.path.join(_attachment_dir(), stored)
+    with open(path, "wb") as f:
+        f.write(file_bytes)
+
+    meta = _safe_load_path(_attachment_path(), [])
+    if not isinstance(meta, list):
+        meta = []
+    rec = {
+        "id": max((m.get("id", 0) for m in meta), default=0) + 1,
+        "entity_type": entity_type,
+        "entity_id": int(entity_id),
+        "original_name": original,
+        "stored_name": stored,
+        "size": len(file_bytes),
+        "uploaded_at": _now_utc(),
+    }
+    meta.append(rec)
+    _write_json_atomic_path(_attachment_path(), meta)
+    return rec
+
+
+def list_attachments(entity_type: str, entity_id: int) -> list:
+    meta = _safe_load_path(_attachment_path(), [])
+    if not isinstance(meta, list):
+        return []
+    return [m for m in meta if m.get("entity_type") == entity_type and int(m.get("entity_id", 0)) == int(entity_id)]
+
+
+def get_attachment(attachment_id: int) -> dict | None:
+    meta = _safe_load_path(_attachment_path(), [])
+    if not isinstance(meta, list):
+        return None
+    return next((m for m in meta if int(m.get("id", 0)) == int(attachment_id)), None)
+
+
+def delete_attachment(attachment_id: int) -> bool:
+    meta = _safe_load_path(_attachment_path(), [])
+    if not isinstance(meta, list):
+        return False
+    target = next((m for m in meta if int(m.get("id", 0)) == int(attachment_id)), None)
+    if not target:
+        return False
+    path = os.path.join(_attachment_dir(), target.get("stored_name", ""))
+    if os.path.exists(path):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    meta = [m for m in meta if int(m.get("id", 0)) != int(attachment_id)]
+    _write_json_atomic_path(_attachment_path(), meta)
+    return True

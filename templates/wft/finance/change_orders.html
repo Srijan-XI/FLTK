@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Change Orders{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">🧩 Change-order Workflow</h1>
+  <a class="btn btn-secondary" href="{{ url_for('wft.reports') }}">← Reports</a>
+</div>
+
+<div class="card" style="margin-top:1rem">
+  <h2>New Change Order</h2>
+  <form method="POST" action="{{ url_for('wft.add_change_order') }}" class="two-col">
+    <label>Client Name
+      <input type="text" name="client_name" required>
+    </label>
+    <label>Invoice Link (optional)
+      <select name="invoice_id">
+        <option value="">-- none --</option>
+        {% for inv in invoices %}
+        <option value="{{ inv.id }}">{{ inv.invoice_number }} · {{ inv.client_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Quote Link (optional)
+      <select name="quote_id">
+        <option value="">-- none --</option>
+        {% for q in quotes %}
+        <option value="{{ q.id }}">{{ q.quote_number }} · {{ q.client_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Hours Delta
+      <input type="number" name="hours_delta" step="0.1" value="0">
+    </label>
+    <label>Amount Delta (+/-)
+      <input type="number" name="amount_delta" step="0.01" required>
+    </label>
+    <label>Description
+      <input type="text" name="description" required>
+    </label>
+    <button type="submit" class="btn btn-primary">Submit Change Order</button>
+  </form>
+</div>
+
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Client</th>
+        <th>Description</th>
+        <th>Hours Δ</th>
+        <th>Amount Δ</th>
+        <th>Status</th>
+        <th>Linked</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for o in orders %}
+      <tr>
+        <td>{{ o.id }}</td>
+        <td>{{ o.client_name }}</td>
+        <td>{{ o.description }}</td>
+        <td>{{ "%.1f"|format(o.hours_delta) }}</td>
+        <td>{{ "%.2f"|format(o.amount_delta) }}</td>
+        <td><span class="badge">{{ o.status }}</span></td>
+        <td>Q{{ o.quote_id or '-' }} / I{{ o.invoice_id or '-' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('wft.update_change_order_status', order_id=o.id) }}" style="display:flex; gap:.3rem; align-items:center">
+            <select name="status">
+              {% for s in ['draft', 'submitted', 'approved', 'rejected', 'invoiced'] %}
+              <option value="{{ s }}" {% if o.status == s %}selected{% endif %}>{{ s }}</option>
+              {% endfor %}
+            </select>
+            <label style="display:flex; align-items:center; gap:.2rem; font-size:.8rem"><input type="checkbox" name="apply_to_invoice">Apply</label>
+            <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

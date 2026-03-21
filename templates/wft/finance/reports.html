@@ -4,6 +4,12 @@
 {% block content %}
 <h1 class="page-title">📊 Project Profitability Report</h1>
 
+<div class="btn-group" style="margin-bottom:1rem; justify-content:flex-start">
+  <a class="btn btn-secondary" href="{{ url_for('wft.cashflow_forecast') }}">💹 Cash-flow Forecast</a>
+  <a class="btn btn-secondary" href="{{ url_for('wft.change_orders') }}">🧩 Change Orders</a>
+  <a class="btn btn-secondary" href="{{ url_for('wft.ar_risk_scores') }}">⚠ A/R Risk</a>
+</div>
+
 {% if summary %}
 <div class="invoice-summary-bar" style="margin-bottom:1rem;">
   <div class="isb-item">
@@ -132,6 +138,71 @@
 <div class="empty-state">
   <div class="empty-icon">📊</div>
   <p>No data yet. Add clients, log hours, and create invoices to see profitability reports.</p>
+</div>
+{% endif %}
+
+{% if margin %}
+<div class="card" style="margin-top:1rem">
+  <h2>Margin Intelligence</h2>
+  <p class="muted-text">Target effective rate: {{ cfg.currency_symbol }}{{ "%.2f"|format(margin.target_rate) }}/hr</p>
+  {% if margin.alerts %}
+  <div class="alerts-box">
+    <strong>Rate Drop Alerts</strong>
+    <ul>
+      {% for a in margin.alerts %}
+      <li>{{ a.client }}: {{ cfg.currency_symbol }}{{ "%.2f"|format(a.effective_rate) }}/hr (target {{ cfg.currency_symbol }}{{ "%.2f"|format(a.target_rate) }})</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p>No client is below target effective rate.</p>
+  {% endif %}
+
+  <div style="overflow-x:auto; margin-top:1rem">
+    <table class="data-table">
+      <thead><tr><th>Month</th><th>Paid</th><th>Hours</th><th>Effective Rate</th></tr></thead>
+      <tbody>
+      {% for m in margin.by_month %}
+        <tr>
+          <td>{{ m.month }}</td>
+          <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(m.paid) }}</td>
+          <td>{{ "%.2f"|format(m.hours) }}h</td>
+          <td class="{{ 'warning' if m.effective_rate < margin.target_rate and m.effective_rate > 0 else 'success' }}">{{ cfg.currency_symbol }}{{ "%.2f"|format(m.effective_rate) }}/hr</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if forecast %}
+<div class="card" style="margin-top:1rem">
+  <h2>Cash-flow Forecast ({{ forecast.horizon_days }} days)</h2>
+  <p>
+    Best: <span class="success">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.best) }}</span>
+    | Likely: <span class="warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.likely) }}</span>
+    | Worst: <span class="danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.worst) }}</span>
+  </p>
+</div>
+{% endif %}
+
+{% if risk_scores %}
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <table class="data-table">
+    <thead><tr><th>Invoice</th><th>Client</th><th>Balance</th><th>Overdue</th><th>Risk</th></tr></thead>
+    <tbody>
+      {% for r in risk_scores %}
+      <tr>
+        <td><a href="{{ url_for('wft.invoice_detail', inv_id=r.invoice_id) }}">{{ r.invoice_number }}</a></td>
+        <td>{{ r.client_name }}</td>
+        <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(r.balance_due) }}</td>
+        <td>{{ r.days_overdue }}d</td>
+        <td class="{{ 'danger' if r.risk_band == 'high' else ('warning' if r.risk_band == 'medium' else 'success') }}">{{ r.risk_score }} ({{ r.risk_band }})</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endif %}
 

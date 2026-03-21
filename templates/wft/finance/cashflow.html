@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Cash-flow Forecast{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">💹 Cash-flow Forecast</h1>
+  <form method="GET" action="{{ url_for('wft.cashflow_forecast') }}" style="display:flex; gap:.5rem; align-items:center;">
+    <label>Horizon (days)
+      <input type="number" name="days" min="7" max="365" value="{{ forecast.horizon_days }}" style="width:110px; margin-left:.4rem">
+    </label>
+    <button class="btn btn-secondary" type="submit">Refresh</button>
+  </form>
+</div>
+
+<div class="invoice-summary-bar" style="margin-top:1rem">
+  <div class="isb-item"><span class="isb-val success">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.best) }}</span><span class="isb-lbl">Best</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.likely) }}</span><span class="isb-lbl">Likely</span></div>
+  <div class="isb-sep"></div>
+  <div class="isb-item"><span class="isb-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(forecast.totals.worst) }}</span><span class="isb-lbl">Worst</span></div>
+</div>
+
+<div class="card" style="margin-top:1rem; padding:0; overflow:hidden;">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Label</th>
+        <th>Base Amount</th>
+        <th>Best</th>
+        <th>Likely</th>
+        <th>Worst</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in forecast.items %}
+      <tr>
+        <td>{{ item.date }}</td>
+        <td>{{ item.type }}</td>
+        <td>{{ item.label }}</td>
+        <td>{{ cfg.currency_symbol }}{{ "%.2f"|format(item.amount) }}</td>
+        <td class="success">{{ cfg.currency_symbol }}{{ "%.2f"|format(item.best) }}</td>
+        <td class="warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(item.likely) }}</td>
+        <td class="danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(item.worst) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

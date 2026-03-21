@@ -468,6 +468,7 @@ button.tab { background: transparent; font-family: inherit; cursor: pointer; }
 .badge { display: inline-block; padding: .2rem .6rem; border-radius: 20px; font-size: .75rem; font-weight: 600; }
 .badge-unpaid  { background: rgba(242,92,92,.2);   color: var(--danger); }
 .badge-paid    { background: rgba(48,217,136,.2);  color: var(--success); }
+.badge-partial { background: rgba(245,200,66,.2);  color: var(--warning); }
 .badge-overdue { background: rgba(242,92,92,.3);   color: var(--danger); margin-left: .3rem; }
 
 /* Tag badges */

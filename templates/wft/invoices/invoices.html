@@ -6,6 +6,7 @@
   <h1 class="page-title">🧾 Invoices</h1>
   <div class="btn-group">
     <a class="btn btn-secondary" href="{{ url_for('wft.invoice_ageing') }}">📊 A/R Ageing</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.ar_risk_scores') }}">⚠ A/R Risk</a>
     <a class="btn btn-secondary" href="{{ url_for('wft.recurring_invoices') }}">🔁 Recurring</a>
     <a class="btn btn-primary" href="{{ url_for('wft.new_invoice') }}">+ New Invoice</a>
   </div>
@@ -15,6 +16,49 @@
   <a class="badge" style="padding:.5rem 1rem; border-radius:20px; text-decoration:none; background:{% if view != 'recurring' %}#4f8ef7{% else %}#ecf0f1{% endif %}; color:{% if view != 'recurring' %}white{% else %}#34495e{% endif %}" href="{{ url_for('wft.invoices') }}">All</a>
   <a class="badge" style="padding:.5rem 1rem; border-radius:20px; text-decoration:none; background:{% if view == 'recurring' %}#4f8ef7{% else %}#ecf0f1{% endif %}; color:{% if view == 'recurring' %}white{% else %}#34495e{% endif %}" href="{{ url_for('wft.invoices', view='recurring') }}">Recurring Templates</a>
   <span class="badge" style="padding:.5rem 1rem; border-radius:20px">Due now: {{ recurring_due_count or 0 }}</span>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <form method="GET" action="{{ url_for('wft.invoices') }}" class="two-col" style="align-items:end">
+    <label>Client
+      <input type="text" name="client" value="{{ filters.client }}" placeholder="Filter by client">
+    </label>
+    <label>Status
+      <select name="status">
+        <option value="" {% if not filters.status %}selected{% endif %}>All</option>
+        <option value="unpaid" {% if filters.status == 'unpaid' %}selected{% endif %}>Unpaid</option>
+        <option value="partial" {% if filters.status == 'partial' %}selected{% endif %}>Partial</option>
+        <option value="paid" {% if filters.status == 'paid' %}selected{% endif %}>Paid</option>
+      </select>
+    </label>
+    <label>Issue Date From
+      <input type="date" name="start_date" value="{{ filters.start_date }}">
+    </label>
+    <label>Issue Date To
+      <input type="date" name="end_date" value="{{ filters.end_date }}">
+    </label>
+    <div class="btn-group" style="justify-content:flex-start">
+      <button class="btn btn-primary" type="submit">Apply Filters</button>
+      <a class="btn btn-secondary" href="{{ url_for('wft.invoices') }}">Reset</a>
+    </div>
+  </form>
+
+  <div class="btn-group" style="justify-content:flex-start; margin-top:.75rem; flex-wrap:wrap">
+    <form method="POST" action="{{ url_for('wft.save_invoice_view') }}" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap">
+      <input type="text" name="name" placeholder="Save current view as..." required>
+      <input type="hidden" name="client" value="{{ filters.client }}">
+      <input type="hidden" name="status" value="{{ filters.status }}">
+      <input type="hidden" name="start_date" value="{{ filters.start_date }}">
+      <input type="hidden" name="end_date" value="{{ filters.end_date }}">
+      <button class="btn btn-secondary" type="submit">Save View</button>
+    </form>
+    {% for sv in saved_views %}
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoices', view_name=sv.name) }}">{{ sv.name }}</a>
+      <form method="POST" action="{{ url_for('wft.delete_invoice_view', name=sv.name) }}" style="display:inline">
+        <button class="btn btn-danger btn-sm" type="submit">✕</button>
+      </form>
+    {% endfor %}
+  </div>
 </div>
 
 <!-- Summary bar -->
@@ -56,16 +100,29 @@
 
 {% if invoices %}
 <div class="card" style="margin-top:1rem; padding:0; overflow:hidden">
+  <form method="POST" action="{{ url_for('wft.bulk_invoices') }}">
+  <div class="btn-group" style="justify-content:flex-start; padding:.75rem">
+    <select name="bulk_action" required>
+      <option value="">Bulk action</option>
+      <option value="mark_paid">Mark Paid</option>
+      <option value="mark_unpaid">Mark Unpaid</option>
+      <option value="delete">Delete</option>
+      <option value="export_csv">Export CSV</option>
+    </select>
+    <button class="btn btn-secondary" type="submit">Apply to Selected</button>
+  </div>
   <table class="data-table sortable" id="inv-table">
     <thead>
       <tr>
+        <th><input type="checkbox" id="bulk-check-all"></th>
         <th data-col="0"># ↕</th>
         <th data-col="1">Client ↕</th>
         <th data-col="2">Issued ↕</th>
         <th data-col="3">Due ↕</th>
         <th data-col="4">Overdue ↕</th>
         <th data-col="5">Total ↕</th>
-        <th data-col="6">Base ↕</th>
+        <th data-col="6">Balance Due ↕</th>
+        <th data-col="7">Base ↕</th>
         <th>Status</th>
         <th></th>
       </tr>
@@ -73,6 +130,7 @@
     <tbody>
       {% for inv in invoices %}
       <tr>
+        <td><input type="checkbox" class="bulk-row" name="selected_ids" value="{{ inv.id }}"></td>
         <td>{{ inv.invoice_number }}</td>
         <td>{{ inv.client_name }}</td>
         <td>{{ inv.issue_date }}</td>
@@ -92,10 +150,11 @@
           {% endif %}
         </td>
         <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.total) }}</td>
+        <td>{{ inv.get('currency_symbol','$') }}{{ "%.2f"|format(inv.balance_due or inv.total) }}</td>
         <td>
           {{ summary.currency_symbol }}{{ "%.2f"|format(inv.base_total) }} {{ inv.base_currency }}
         </td>
-        <td><span class="badge badge-{{ inv.status }}">{{ inv.status }}</span></td>
+        <td><span class="badge badge-{{ inv.payment_status or inv.status }}">{{ (inv.payment_status or inv.status) }}</span></td>
         <td>
           <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">View</a>
           {% if inv.is_overdue %}
@@ -106,6 +165,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </form>
 </div>
 {% else %}
 <div class="card">
@@ -118,6 +178,15 @@
 {% endif %}
 
 <script>
+  const checkAll = document.getElementById('bulk-check-all');
+  if (checkAll) {
+    checkAll.addEventListener('change', () => {
+      document.querySelectorAll('.bulk-row').forEach(cb => {
+        cb.checked = checkAll.checked;
+      });
+    });
+  }
+
   // Sortable table
   document.querySelectorAll('.sortable th[data-col]').forEach(th => {
     th.style.cursor = 'pointer';

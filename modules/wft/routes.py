@@ -1,6 +1,7 @@
-from flask import render_template, request, redirect, url_for, flash, Response, jsonify, current_app
+from flask import render_template, request, redirect, url_for, flash, Response, jsonify, current_app, session, send_file
 from modules.wft import wft_bp
 import modules.wft.helpers as h
+import os
 
 
 def _render_pdf_response(template_name: str, context: dict, filename: str,
@@ -562,6 +563,45 @@ def clients():
                            currencies=h.CURRENCY_OPTIONS)
 
 
+@wft_bp.route("/import", methods=["GET", "POST"])
+def import_center():
+    preview_rows = []
+    preview_errors = []
+    dataset = request.form.get("dataset", "") if request.method == "POST" else ""
+
+    if request.method == "POST":
+        action = request.form.get("action", "preview")
+        if action == "preview":
+            upload = request.files.get("file")
+            if not upload or not upload.filename:
+                preview_errors.append("Please select a CSV file.")
+            else:
+                rows, errs = h.import_preview(dataset, upload.filename, upload.read())
+                preview_rows = rows[:50]
+                preview_errors.extend(errs)
+                session["import_preview_payload"] = rows
+                session["import_preview_dataset"] = dataset
+        elif action == "commit":
+            rows = session.get("import_preview_payload", [])
+            ds = session.get("import_preview_dataset", "")
+            if not rows or not ds:
+                preview_errors.append("No preview data found. Upload and preview first.")
+            else:
+                count = h.import_commit(ds, rows)
+                session.pop("import_preview_payload", None)
+                session.pop("import_preview_dataset", None)
+                flash(f"Imported {count} record(s) into {ds}.", "success")
+                return redirect(url_for("wft.import_center"))
+
+    return render_template(
+        "wft/system/import_center.html",
+        preview_rows=preview_rows,
+        preview_errors=preview_errors,
+        dataset=dataset,
+        has_preview=bool(session.get("import_preview_payload")),
+    )
+
+
 @wft_bp.route("/clients/add", methods=["POST"])
 def add_client():
     try:
@@ -646,6 +686,23 @@ def invoices():
         inv["display_total"] = h.get_invoice_display_total(inv)
         inv["base_total"] = float(inv.get("total_base", (inv.get("total", 0.0) or 0.0) * float(inv.get("exchange_rate", 1.0) or 1.0)) or 0.0)
         inv["base_currency"] = inv.get("base_currency") or cfg.get("currency", "USD")
+
+    selected_view = request.args.get("view_name", "").strip()
+    saved_views = h.get_invoice_saved_views()
+    view_filters = {}
+    if selected_view:
+        matched = next((v for v in saved_views if v.get("name") == selected_view), None)
+        if matched:
+            view_filters = matched.get("filters", {})
+
+    filters = {
+        "client": request.args.get("client", view_filters.get("client", "")),
+        "status": request.args.get("status", view_filters.get("status", "")),
+        "start_date": request.args.get("start_date", view_filters.get("start_date", "")),
+        "end_date": request.args.get("end_date", view_filters.get("end_date", "")),
+    }
+    invs = h.filter_invoices(invs, filters)
+
     if view == "recurring":
         invs = [inv for inv in invs if inv.get("recurring")]
     return render_template(
@@ -655,7 +712,52 @@ def invoices():
         summary=summary,
         recurring_due_count=len(h.get_due_recurring_invoices()),
         view=view,
+        filters=filters,
+        saved_views=saved_views,
+        selected_view=selected_view,
     )
+
+
+@wft_bp.route("/invoices/views/save", methods=["POST"])
+def save_invoice_view():
+    name = request.form.get("name", "")
+    filters = {
+        "client": request.form.get("client", ""),
+        "status": request.form.get("status", ""),
+        "start_date": request.form.get("start_date", ""),
+        "end_date": request.form.get("end_date", ""),
+    }
+    try:
+        h.save_invoice_view(name, filters)
+        flash("Saved view created.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.invoices", **filters))
+
+
+@wft_bp.route("/invoices/views/<path:name>/delete", methods=["POST"])
+def delete_invoice_view(name):
+    if h.delete_invoice_view(name):
+        flash("Saved view deleted.", "info")
+    else:
+        flash("Saved view not found.", "error")
+    return redirect(url_for("wft.invoices"))
+
+
+@wft_bp.route("/invoices/bulk", methods=["POST"])
+def bulk_invoices():
+    action = request.form.get("bulk_action", "")
+    ids = request.form.getlist("selected_ids")
+    if action == "export_csv":
+        csv_text = h.invoice_ids_to_csv(ids)
+        return Response(
+            csv_text,
+            mimetype="text/csv",
+            headers={"Content-Disposition": 'attachment; filename="invoices-bulk.csv"'},
+        )
+    count = h.bulk_invoice_action(ids, action)
+    flash(f"Bulk action applied to {count} invoice(s).", "success")
+    return redirect(url_for("wft.invoices"))
 
 
 @wft_bp.route("/invoices/recurring")
@@ -664,6 +766,7 @@ def recurring_invoices():
         "wft/invoices/recurring.html",
         templates=h.get_recurring_templates(),
         due=h.get_due_recurring_invoices(),
+        reminders=h.recurring_reminders(),
     )
 
 
@@ -700,6 +803,13 @@ def overdue_invoices():
     cfg = h.get_settings()
     overdue = h.get_overdue_invoices()
     return render_template("wft/invoices/overdue.html", overdue=overdue, cfg=cfg)
+
+
+@wft_bp.route("/invoices/ar-risk")
+def ar_risk_scores():
+    cfg = h.get_settings()
+    scores = h.get_ar_risk_scores()
+    return render_template("wft/invoices/ar_risk.html", scores=scores, cfg=cfg)
 
 
 @wft_bp.route("/invoices/ageing")
@@ -794,8 +904,7 @@ def new_invoice():
 
 @wft_bp.route("/invoices/<int:inv_id>")
 def invoice_detail(inv_id):
-    inv_list = h.get_invoices()
-    inv = next((i for i in inv_list if i["id"] == inv_id), None)
+    inv = h.get_invoice(inv_id)
     if not inv:
         flash("Invoice not found.", "error")
         return redirect(url_for("wft.invoices"))
@@ -805,10 +914,37 @@ def invoice_detail(inv_id):
     return render_template(
         "wft/invoices/invoice_detail.html",
         inv=inv,
+        ledger=h.get_invoice_ledger(inv_id),
+        attachments=h.list_attachments("invoice", inv_id),
         cfg=cfg,
         sdlc_templates=sdlc_templates,
         recurring_due_count=len(h.get_due_recurring_invoices()),
     )
+
+
+@wft_bp.route("/invoices/<int:inv_id>/payments", methods=["POST"])
+def invoice_add_payment(inv_id):
+    try:
+        amount = float(request.form.get("amount", 0) or 0)
+        note = request.form.get("note", "")
+        paid_date = request.form.get("paid_date", "")
+        h.add_invoice_payment(inv_id, amount=amount, paid_date=paid_date, note=note)
+        flash("Payment recorded.", "success")
+    except (ValueError, TypeError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.invoice_detail", inv_id=inv_id))
+
+
+@wft_bp.route("/invoices/<int:inv_id>/adjustments", methods=["POST"])
+def invoice_add_adjustment(inv_id):
+    try:
+        amount = float(request.form.get("amount", 0) or 0)
+        reason = request.form.get("reason", "")
+        h.add_invoice_adjustment(inv_id, amount=amount, reason=reason)
+        flash("Adjustment applied.", "success")
+    except (ValueError, TypeError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.invoice_detail", inv_id=inv_id))
 
 
 @wft_bp.route("/invoices/pay/<int:inv_id>", methods=["POST"])
@@ -892,7 +1028,11 @@ def contract_detail(contract_id):
     if not contract:
         flash("Contract not found.", "error")
         return redirect(url_for("wft.contracts"))
-    return render_template("wft/contracts/contract_detail.html", contract=contract)
+    return render_template(
+        "wft/contracts/contract_detail.html",
+        contract=contract,
+        attachments=h.list_attachments("contract", contract_id),
+    )
 
 
 @wft_bp.route("/contracts/<int:contract_id>/edit", methods=["GET", "POST"])
@@ -1687,7 +1827,66 @@ def reports():
     cfg = h.get_settings()
     summary = h.get_earnings_summary()
     overdue = h.get_overdue_invoices()
-    return render_template("wft/finance/reports.html", rows=rows, cfg=cfg, summary=summary, overdue=overdue)
+    return render_template(
+        "wft/finance/reports.html",
+        rows=rows,
+        cfg=cfg,
+        summary=summary,
+        overdue=overdue,
+        margin=h.margin_intelligence(),
+        forecast=h.cashflow_forecast(90),
+        risk_scores=h.get_ar_risk_scores()[:10],
+    )
+
+
+@wft_bp.route("/finance/cashflow")
+def cashflow_forecast():
+    days = request.args.get("days", default=90, type=int)
+    cfg = h.get_settings()
+    forecast = h.cashflow_forecast(days=max(days, 7))
+    return render_template("wft/finance/cashflow.html", forecast=forecast, cfg=cfg)
+
+
+@wft_bp.route("/change-orders")
+def change_orders():
+    return render_template(
+        "wft/finance/change_orders.html",
+        orders=h.get_change_orders(),
+        invoices=h.get_invoices(),
+        quotes=h.get_quotes(),
+    )
+
+
+@wft_bp.route("/change-orders/new", methods=["POST"])
+def add_change_order():
+    try:
+        invoice_id = request.form.get("invoice_id", type=int)
+        quote_id = request.form.get("quote_id", type=int)
+        h.add_change_order(
+            client_name=request.form.get("client_name", ""),
+            description=request.form.get("description", ""),
+            amount_delta=float(request.form.get("amount_delta", 0) or 0),
+            hours_delta=float(request.form.get("hours_delta", 0) or 0),
+            quote_id=quote_id,
+            invoice_id=invoice_id,
+            status="submitted",
+        )
+        flash("Change order submitted.", "success")
+    except (ValueError, TypeError) as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.change_orders"))
+
+
+@wft_bp.route("/change-orders/<int:order_id>/status", methods=["POST"])
+def update_change_order_status(order_id):
+    status = request.form.get("status", "draft")
+    apply_to_invoice = bool(request.form.get("apply_to_invoice"))
+    try:
+        h.update_change_order_status(order_id, status=status, apply_to_invoice=apply_to_invoice)
+        flash("Change order updated.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.change_orders"))
 
 
 @wft_bp.route("/finance/snapshot")
@@ -1842,7 +2041,49 @@ def crm_client(client_id):
         cfg=cfg,
         pinned_notes=pinned_notes,
         rate_history=rate_history,
+        attachments=h.list_attachments("client", client_id),
     )
+
+
+@wft_bp.route("/attachments/upload", methods=["POST"])
+def upload_attachment():
+    entity_type = request.form.get("entity_type", "").strip().lower()
+    entity_id = request.form.get("entity_id", type=int)
+    back = request.form.get("back", "")
+    upload = request.files.get("file")
+    if not upload or not upload.filename:
+        flash("Select a file to upload.", "error")
+        return redirect(back or url_for("home"))
+    if entity_type not in {"client", "contract", "invoice"} or not entity_id:
+        flash("Invalid attachment target.", "error")
+        return redirect(back or url_for("home"))
+    h.add_attachment(entity_type, entity_id, upload.filename, upload.read())
+    flash("Attachment uploaded.", "success")
+    return redirect(back or url_for("home"))
+
+
+@wft_bp.route("/attachments/<int:attachment_id>/download")
+def download_attachment(attachment_id):
+    att = h.get_attachment(attachment_id)
+    if not att:
+        flash("Attachment not found.", "error")
+        return redirect(url_for("home"))
+    file_path = os.path.join(current_app.root_path, "..", "data", "attachments", att.get("stored_name", ""))
+    try:
+        return send_file(file_path, as_attachment=True, download_name=att.get("original_name", "attachment"))
+    except FileNotFoundError:
+        flash("Attachment file not found on disk.", "error")
+        return redirect(url_for("home"))
+
+
+@wft_bp.route("/attachments/<int:attachment_id>/delete", methods=["POST"])
+def delete_attachment(attachment_id):
+    back = request.form.get("back", "")
+    if h.delete_attachment(attachment_id):
+        flash("Attachment deleted.", "info")
+    else:
+        flash("Attachment not found.", "error")
+    return redirect(back or url_for("home"))
 
 
 @wft_bp.route("/clients/<int:client_id>/rate", methods=["POST"])
