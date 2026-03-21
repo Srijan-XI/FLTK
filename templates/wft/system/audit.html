@@ -2,16 +2,30 @@
 {% block title %}Audit Trail{% endblock %}
 
 {% block content %}
-<h1 class="page-title">🧾 Audit Trail</h1>
+<div class="page-header">
+  <h1 class="page-title">🧾 Audit Trail</h1>
+  <form method="GET" action="{{ url_for('wft.audit_trail') }}" style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+    <label style="display:flex; align-items:center; gap:.4rem;">
+      <span class="muted-text">Rows</span>
+      <select name="limit">
+        {% for n in [50, 100, 200, 500] %}
+        <option value="{{ n }}" {% if request.args.get('limit', '200') == (n|string) %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-secondary btn-sm" type="submit">Apply</button>
+  </form>
+</div>
 
 <div class="card">
-  <p style="color:var(--muted); font-size:.92rem; margin-bottom:1rem">
+  <p style="color:var(--muted); font-size:.92rem; margin-bottom:.6rem">
     Append-only operational history for critical actions including writes, backups, restores, and integrity repairs.
   </p>
+  <p class="muted-text" style="font-size:.82rem; margin-bottom:1rem">Showing {{ entries|length }} newest event(s).</p>
 
   {% if entries %}
-  <div class="table-wrap">
-    <table class="table">
+  <div class="audit-table-wrap">
+    <table class="data-table audit-table">
       <thead>
         <tr>
           <th>Time (UTC)</th>
@@ -26,13 +40,19 @@
       <tbody>
         {% for item in entries %}
         <tr>
-          <td>{{ item.timestamp }}</td>
-          <td>{{ item.action }}</td>
-          <td>{{ item.target }}</td>
+          <td class="audit-ts">{{ item.timestamp }}</td>
+          <td><span class="badge" style="background:rgba(79,142,247,.2); color:var(--primary)">{{ item.action }}</span></td>
+          <td class="audit-target">{{ item.target }}</td>
           <td>{{ item.actor }}</td>
           <td>{{ item.source }}</td>
-          <td>{{ item.endpoint or '-' }}</td>
-          <td><code>{{ item.details | tojson }}</code></td>
+          <td class="audit-endpoint">{{ item.endpoint or '-' }}</td>
+          <td class="audit-details-cell">
+            {% set details_json = item.details | tojson %}
+            <details class="audit-details">
+              <summary>View details</summary>
+              <pre>{{ details_json }}</pre>
+            </details>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

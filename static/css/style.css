@@ -1111,6 +1111,55 @@ footer {
   letter-spacing: .08em;
 }
 
+/* ── Audit Trail ─────────────────────────────────────────────────────────── */
+.audit-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.audit-table {
+  min-width: 980px;
+}
+
+.audit-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.audit-ts,
+.audit-target,
+.audit-endpoint {
+  white-space: nowrap;
+}
+
+.audit-details-cell {
+  max-width: 420px;
+}
+
+.audit-details summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.audit-details pre {
+  margin-top: .45rem;
+  padding: .55rem .65rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text);
+  font-size: .78rem;
+  line-height: 1.45;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ── Accessibility preferences ───────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

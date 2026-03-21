@@ -574,7 +574,7 @@ def import_center():
         if action == "preview":
             upload = request.files.get("file")
             if not upload or not upload.filename:
-                preview_errors.append("Please select a CSV file.")
+                preview_errors.append("Please select a CSV/XLSX file.")
             else:
                 rows, errs = h.import_preview(dataset, upload.filename, upload.read())
                 preview_rows = rows[:50]

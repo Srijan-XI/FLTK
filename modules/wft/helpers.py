@@ -3740,14 +3740,41 @@ def _parse_csv_rows(file_bytes: bytes) -> list[dict]:
     return rows
 
 
+def _parse_xlsx_rows(file_bytes: bytes) -> list[dict]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:
+        raise ValueError("XLSX import requires openpyxl (pip install openpyxl).") from exc
+
+    wb = load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+    ws = wb.active
+    values = list(ws.values)
+    if not values:
+        return []
+    headers = [str(h or "").strip() for h in values[0]]
+    rows = []
+    for raw in values[1:]:
+        row = {}
+        for idx, head in enumerate(headers):
+            row[head] = str(raw[idx] if idx < len(raw) and raw[idx] is not None else "").strip()
+        rows.append(row)
+    return rows
+
+
 def import_preview(dataset: str, file_name: str, file_bytes: bytes) -> tuple[list[dict], list[str]]:
     dataset = (dataset or "").strip().lower()
     errors = []
 
-    if not file_name.lower().endswith(".csv"):
-        return [], ["Only CSV import is supported in this build."]
-
-    rows = _parse_csv_rows(file_bytes)
+    lower = file_name.lower()
+    if lower.endswith(".csv"):
+        rows = _parse_csv_rows(file_bytes)
+    elif lower.endswith(".xlsx"):
+        try:
+            rows = _parse_xlsx_rows(file_bytes)
+        except ValueError as exc:
+            return [], [str(exc)]
+    else:
+        return [], ["Only CSV and XLSX import files are supported."]
     if not rows:
         return [], ["No rows found in uploaded file."]
 
