@@ -62,6 +62,4 @@ data/*.json
 Desktop.ini
 Thumbs.db
 
-FLTK.txt
-plan.txt
-FEATURES.md
+docs/
