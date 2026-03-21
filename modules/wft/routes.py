@@ -1,4 +1,4 @@
-from flask import render_template, request, redirect, url_for, flash, Response, jsonify
+from flask import render_template, request, redirect, url_for, flash, Response, jsonify, current_app
 from modules.wft import wft_bp
 import modules.wft.helpers as h
 
@@ -1641,6 +1641,42 @@ def search():
     }
     total = sum(len(v) for v in results.values())
     return render_template("wft/system/search.html", results=results, query=q, total=total)
+
+
+@wft_bp.route("/sitemap")
+def sitemap():
+    routes = []
+    for rule in current_app.url_map.iter_rules():
+        if "GET" not in rule.methods:
+            continue
+        if rule.endpoint == "static":
+            continue
+        if not (
+            rule.endpoint == "home"
+            or rule.endpoint.startswith("wft.")
+            or rule.endpoint.startswith("drp.")
+        ):
+            continue
+
+        if rule.endpoint == "home":
+            group = "Home"
+        elif rule.endpoint.startswith("drp."):
+            group = "DRP"
+        else:
+            group = "WFT"
+
+        methods = sorted(m for m in rule.methods if m not in {"HEAD", "OPTIONS"})
+        routes.append(
+            {
+                "group": group,
+                "endpoint": rule.endpoint,
+                "path": rule.rule,
+                "methods": ", ".join(methods),
+            }
+        )
+
+    routes.sort(key=lambda x: (x["group"], x["path"]))
+    return render_template("wft/system/sitemap.html", routes=routes, total=len(routes))
 
 
 # ── Profitability Report ──────────────────────────────────────────────────────

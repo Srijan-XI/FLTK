@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sitemap{% endblock %}
+
+{% block content %}
+<section class="sitemap-page">
+  <div class="card sitemap-hero">
+    <h1 class="page-title">🗺 Sitemap</h1>
+    <p class="muted-text">All available app pages and their paths are listed below.</p>
+    <p class="muted-text">Total routes: <strong>{{ total }}</strong></p>
+    <p class="muted-text">Created by srijan-xi</p>
+  </div>
+
+  <div class="card sitemap-table-wrap">
+    <table class="data-table sitemap-table">
+      <thead>
+        <tr>
+          <th>Group</th>
+          <th>Endpoint</th>
+          <th>Path</th>
+          <th>Methods</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for route in routes %}
+        <tr>
+          <td><span class="badge badge-unpaid">{{ route.group }}</span></td>
+          <td>{{ route.endpoint }}</td>
+          <td><code>{{ route.path }}</code></td>
+          <td>{{ route.methods }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
