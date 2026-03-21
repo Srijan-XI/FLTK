@@ -44,6 +44,48 @@
     {% if template %}<p class="muted-text" style="margin-top:.75rem">Template guidance: {{ template.best_for }}</p>{% endif %}
   </div>
 
+  {% if scope and scope.budget_hours %}
+  <div class="card" style="margin-bottom:1rem; border-left: 4px solid {% if scope.status == 'on_track' %}#2ecc71{% elif scope.status == 'warning' %}#f39c12{% else %}#e74c3c{% endif %}">
+    <h2>Scope Health</h2>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem">
+      <div>
+        <div class="muted-text" style="font-size: 0.85rem">Budgeted Hours</div>
+        <div style="font-size: 1.3rem; font-weight: 600">{{ scope.budget_hours }}</div>
+      </div>
+      <div>
+        <div class="muted-text" style="font-size: 0.85rem">Actual Hours Logged</div>
+        <div style="font-size: 1.3rem; font-weight: 600">{{ scope.actual_hours }}</div>
+      </div>
+    </div>
+    <div style="margin-bottom: 1rem">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem">
+        <span>Utilisation</span>
+        <span style="font-weight: 600">{{ (scope.utilisation_percent or 0) | int }}%</span>
+      </div>
+      <div style="width: 100%; height: 20px; background: #ecf0f1; border-radius: 4px; overflow: hidden">
+        <div style="height: 100%; width: {{ [scope.utilisation_percent or 0, 100] | min }}%; background: {% if scope.status == 'on_track' %}#2ecc71{% elif scope.status == 'warning' %}#f39c12{% else %}#e74c3c{% endif %}"></div>
+      </div>
+    </div>
+    {% if scope.status == 'over_budget' %}
+    <div style="padding: 0.75rem; background: #fadbd8; border-radius: 4px; margin-bottom: 1rem">
+      <div style="color: #c0392b; font-weight: 600">⚠ Scope exceeded by {{ scope.hours_over }} hours</div>
+      <p style="margin: 0.5rem 0 0 0; color: #7b241c; font-size: 0.9rem">Consider raising a Change Order or discussing additional compensation with the client.</p>
+    </div>
+    <a href="{{ url_for('wft.new_quote', client_id=project.client_id) }}" class="btn btn-small" style="background: #e74c3c">Create Change Order Quote →</a>
+    {% elif scope.status == 'warning' %}
+    <div style="padding: 0.75rem; background: #fceaa3; border-radius: 4px; margin-bottom: 1rem">
+      <div style="color: #b8860b; font-weight: 600">⚠ Approaching budget limit</div>
+      <p style="margin: 0.5rem 0 0 0; color: #755b16; font-size: 0.9rem">You have {{ (scope.budget_hours - scope.actual_hours) | round(1) }} hours of budget remaining.</p>
+    </div>
+    {% else %}
+    <div style="padding: 0.75rem; background: #d5f4e6; border-radius: 4px">
+      <div style="color: #1e7e34; font-weight: 600">✓ On track</div>
+      <p style="margin: 0.5rem 0 0 0; color: #145a32; font-size: 0.9rem">Scope is within budget.</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <div class="two-col">
     <div class="card">
       <h2>Objectives</h2>

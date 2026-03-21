@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}A/R Ageing Report{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.invoices') }}">← Back to Invoices</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📊 Accounts Receivable — Ageing Report</h1>
+    <p class="subtitle" style="margin-bottom:0">Outstanding invoices classified by age.</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <a class="btn btn-secondary" href="{{ url_for('wft.invoice_ageing_pdf') }}">⬇ Export PDF</a>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.5rem">
+  <div class="isb-item">
+    <span class="isb-val success">{{ cfg.currency_symbol }}{{ "%.2f"|format(ageing.grand_total) }}</span>
+    <span class="isb-lbl">Total Outstanding</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted" style="background:rgba(44,62,80,.1); color: #34495e">{{ cfg.currency_symbol }}{{ "%.2f"|format(ageing.current.total) }}</span>
+    <span class="isb-lbl">Current</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val" style="background:rgba(243,156,18,.1); color: #d68910">{{ cfg.currency_symbol }}{{ "%.2f"|format(ageing['1_30'].total) }}</span>
+    <span class="isb-lbl">1–30 Days</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val" style="background:rgba(230,126,34,.1); color: #ba4a00">{{ cfg.currency_symbol }}{{ "%.2f"|format(ageing['31_60'].total) }}</span>
+    <span class="isb-lbl">31–60 Days</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(ageing['60_plus'].total) }}</span>
+    <span class="isb-lbl">60+ Days</span>
+  </div>
+</div>
+
+<!-- Bucket: Current -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <h2 style="margin:0">Current</h2>
+    <span class="badge" style="background:rgba(44,62,80,.1); color: #34495e">{{ ageing.current.count }} invoice{{ 's' if ageing.current.count != 1 }}</span>
+  </div>
+  {% if ageing.current.invoices %}
+  <table class="data-table" style="margin-top:1rem">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>Due Date</th>
+        <th>Days</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in ageing.current.invoices %}
+      <tr>
+        <td><a href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}" style="color: var(--primary)">{{ inv.invoice_number }}</a></td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.due_date }}</td>
+        <td><span class="badge" style="background:rgba(44,62,80,.1); color: #34495e">{{ inv.days_age }} days</span></td>
+        <td style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(inv.total) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted-text" style="margin-top:1rem">No invoices in this bucket.</p>
+  {% endif %}
+</div>
+
+<!-- Bucket: 1–30 Days -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <h2 style="margin:0">1–30 Days Overdue</h2>
+    <span class="badge" style="background:rgba(243,156,18,.1); color: #d68910">{{ ageing['1_30'].count }} invoice{{ 's' if ageing['1_30'].count != 1 }}</span>
+  </div>
+  {% if ageing['1_30'].invoices %}
+  <table class="data-table" style="margin-top:1rem">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>Due Date</th>
+        <th>Days</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in ageing['1_30'].invoices %}
+      <tr>
+        <td><a href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}" style="color: var(--primary)">{{ inv.invoice_number }}</a></td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.due_date }}</td>
+        <td><span class="badge" style="background:rgba(243,156,18,.1); color: #d68910">{{ inv.days_age }} days</span></td>
+        <td style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(inv.total) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted-text" style="margin-top:1rem">No invoices in this bucket.</p>
+  {% endif %}
+</div>
+
+<!-- Bucket: 31–60 Days -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <h2 style="margin:0">31–60 Days Overdue</h2>
+    <span class="badge" style="background:rgba(230,126,34,.1); color: #ba4a00">{{ ageing['31_60'].count }} invoice{{ 's' if ageing['31_60'].count != 1 }}</span>
+  </div>
+  {% if ageing['31_60'].invoices %}
+  <table class="data-table" style="margin-top:1rem">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>Due Date</th>
+        <th>Days</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in ageing['31_60'].invoices %}
+      <tr>
+        <td><a href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}" style="color: var(--primary)">{{ inv.invoice_number }}</a></td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.due_date }}</td>
+        <td><span class="badge" style="background:rgba(230,126,34,.1); color: #ba4a00">{{ inv.days_age }} days</span></td>
+        <td style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(inv.total) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted-text" style="margin-top:1rem">No invoices in this bucket.</p>
+  {% endif %}
+</div>
+
+<!-- Bucket: 60+ Days -->
+<div class="card" style="margin-bottom:1rem">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <h2 style="margin:0">60+ Days Overdue</h2>
+    <span class="badge danger">{{ ageing['60_plus'].count }} invoice{{ 's' if ageing['60_plus'].count != 1 }}</span>
+  </div>
+  {% if ageing['60_plus'].invoices %}
+  <table class="data-table" style="margin-top:1rem">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>Due Date</th>
+        <th>Days</th>
+        <th style="text-align:right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in ageing['60_plus'].invoices %}
+      <tr>
+        <td><a href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}" style="color: var(--primary)">{{ inv.invoice_number }}</a></td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.due_date }}</td>
+        <td><span class="badge danger">{{ inv.days_age }} days</span></td>
+        <td style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(inv.total) }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted-text" style="margin-top:1rem">No invoices in this bucket.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

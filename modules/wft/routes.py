@@ -586,6 +586,25 @@ def overdue_invoices():
     return render_template("wft/invoices/overdue.html", overdue=overdue, cfg=cfg)
 
 
+@wft_bp.route("/invoices/ageing")
+def invoice_ageing():
+    ageing = h.get_ar_ageing()
+    cfg = h.get_settings()
+    return render_template("wft/invoices/invoice_ageing.html", ageing=ageing, cfg=cfg)
+
+
+@wft_bp.route("/invoices/ageing/pdf")
+def invoice_ageing_pdf():
+    ageing = h.get_ar_ageing()
+    cfg = h.get_settings()
+    return _render_pdf_response(
+        "wft/invoices/invoice_ageing_print.html",
+        {"ageing": ageing, "cfg": cfg},
+        "AR_Ageing.pdf",
+        "wft.invoice_ageing"
+    )
+
+
 @wft_bp.route("/invoices/<int:inv_id>/reminder")
 def invoice_reminder(inv_id):
     inv_list = h.get_invoices()

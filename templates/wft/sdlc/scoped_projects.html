@@ -28,7 +28,7 @@
   {% endfor %}
 </div>
 
-<form method="GET" action="{{ url_for('wft.scoped_projects') }}" class="card" style="margin-bottom:1.5rem; padding:1rem">
+<form method="GET" action="{{ url_for('wft.scoped_projects') }}" class="card" style="margin-bottom:0.75rem; padding:1rem">
   <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
     <select name="client_id">
       <option value="">All clients</option>
@@ -41,14 +41,21 @@
   </div>
 </form>
 
+<div style="margin-bottom:1.5rem; display:flex; gap:.5rem; flex-wrap:wrap">
+  <a class="badge" style="padding:.5rem 1rem; border-radius:20px; cursor:pointer; background:{% if not scope_filter %}#4f8ef7{% else %}#ecf0f1{% endif %}; color:{% if not scope_filter %}white{% else %}#34495e{% endif %}; text-decoration:none" href="{{ url_for('wft.scoped_projects', client_id=selected_client or '') }}">All</a>
+  <a class="badge" style="padding:.5rem 1rem; border-radius:20px; cursor:pointer; background:{% if scope_filter == 'warning' %}#f39c12{% else %}#ecf0f1{% endif %}; color:{% if scope_filter == 'warning' %}white{% else %}#34495e{% endif %}; text-decoration:none" href="{{ url_for('wft.scoped_projects', filter='warning', client_id=selected_client or '') }}">⚠ Warning</a>
+  <a class="badge" style="padding:.5rem 1rem; border-radius:20px; cursor:pointer; background:{% if scope_filter == 'over_budget' %}#e74c3c{% else %}#ecf0f1{% endif %}; color:{% if scope_filter == 'over_budget' %}white{% else %}#34495e{% endif %}; text-decoration:none" href="{{ url_for('wft.scoped_projects', filter='over_budget', client_id=selected_client or '') }}">🔴 Over Budget</a>
+</div>
+
 {% if projects %}
 <div class="card">
   <table class="data-table">
     <thead>
-      <tr><th>Project</th><th>Client</th><th>SDLC Model</th><th>Status</th><th>Target</th><th></th></tr>
+      <tr><th>Project</th><th>Client</th><th>SDLC Model</th><th>Status</th><th>Scope</th><th>Target</th><th></th></tr>
     </thead>
     <tbody>
       {% for project in projects %}
+      {% set proj_scope = scope_statuses | selectattr('project_id', 'equalto', project.id) | first %}
       <tr>
         <td>
           <strong>{{ project.project_name }}</strong>
@@ -57,6 +64,18 @@
         <td>{{ project.client_name }}</td>
         <td>{{ project.template_name }}</td>
         <td><span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">{{ project.status.replace('_', ' ') | title }}</span></td>
+        <td>
+          {% if proj_scope and proj_scope.budget_hours %}
+          <div style="display: flex; align-items: center; gap: 0.5rem">
+            <div style="width: 60px; height: 16px; background: #ecf0f1; border-radius: 2px; overflow: hidden">
+              <div style="height: 100%; width: {{ [proj_scope.utilisation_percent or 0, 100] | min }}%; background: {% if proj_scope.status == 'on_track' %}#2ecc71{% elif proj_scope.status == 'warning' %}#f39c12{% else %}#e74c3c{% endif %}"></div>
+            </div>
+            <span style="font-size: 0.85rem; font-weight: 600">{{ (proj_scope.utilisation_percent or 0) | int }}%</span>
+          </div>
+          {% else %}
+          <span class="muted-text" style="font-size: 0.9rem">—</span>
+          {% endif %}
+        </td>
         <td>{{ project.target_date or '—' }}</td>
         <td class="action-cell">
           <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.scoped_project_detail', project_id=project.id) }}">View</a>
