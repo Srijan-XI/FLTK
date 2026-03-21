@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Audit Trail{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🧾 Audit Trail</h1>
+
+<div class="card">
+  <p style="color:var(--muted); font-size:.92rem; margin-bottom:1rem">
+    Append-only operational history for critical actions including writes, backups, restores, and integrity repairs.
+  </p>
+
+  {% if entries %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Actor</th>
+          <th>Source</th>
+          <th>Endpoint</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in entries %}
+        <tr>
+          <td>{{ item.timestamp }}</td>
+          <td>{{ item.action }}</td>
+          <td>{{ item.target }}</td>
+          <td>{{ item.actor }}</td>
+          <td>{{ item.source }}</td>
+          <td>{{ item.endpoint or '-' }}</td>
+          <td><code>{{ item.details | tojson }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p style="color:var(--muted)">No audit events yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

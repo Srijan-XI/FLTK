@@ -684,6 +684,13 @@ button.tab { background: transparent; font-family: inherit; cursor: pointer; }
 .badge-saved { background: rgba(48,217,136,.2); color: var(--success); }
 .badge-discarded { background: rgba(136,150,176,.2); color: var(--muted); }
 
+.badge-health-good { background: rgba(48,217,136,.2); color: var(--success); }
+.badge-health-warning { background: rgba(245,200,66,.2); color: var(--warning); }
+.badge-health-critical { background: rgba(242,92,92,.2); color: var(--danger); }
+.badge-health-major { background: rgba(245,200,66,.2); color: var(--warning); }
+.badge-health-minor { background: rgba(79,142,247,.2); color: var(--primary); }
+.badge-health-info { background: rgba(136,150,176,.2); color: var(--muted); }
+
 /* ── Calendar ────────────────────────────────────────────────────────────── */
 .calendar-nav {
   display: flex;

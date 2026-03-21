@@ -4,6 +4,16 @@
 {% block content %}
 <h1 class="page-title">🗄️ Backup &amp; Restore</h1>
 
+<div class="card" style="margin-bottom:1rem">
+  <h2>Integrity Snapshot</h2>
+  <p style="color:var(--muted); font-size:.9rem; margin-bottom:.75rem">
+    Latest scan counts: Critical {{ integrity_counts.critical or 0 }},
+    Major {{ integrity_counts.major or 0 }},
+    Minor {{ integrity_counts.minor or 0 }}.
+  </p>
+  <a class="btn btn-secondary" href="{{ url_for('wft.integrity_scan') }}">Open Integrity Scanner</a>
+</div>
+
 <div class="two-col">
   <!-- Download backup -->
   <div class="card">
@@ -47,6 +57,54 @@
       </button>
     </form>
   </div>
+</div>
+
+<div class="card" style="margin-top:1.5rem">
+  <h2>Restore Points (Versioned Backups)</h2>
+  <p style="color:var(--muted); font-size:.9rem; margin-bottom:1rem">
+    Create labeled restore points and roll back safely. Older restore points are auto-pruned by retention policy.
+  </p>
+
+  <form method="POST" action="{{ url_for('wft.backup_create_restore_point') }}" style="margin-bottom:1rem; display:flex; gap:.5rem; flex-wrap:wrap">
+    <input type="text" name="label" placeholder="Label (e.g., Before milestone cleanup)" style="min-width:280px" />
+    <button type="submit" class="btn btn-primary">Create Restore Point</button>
+  </form>
+
+  {% if restore_points %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Created</th>
+            <th>Label</th>
+            <th>Filename</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for point in restore_points %}
+          <tr>
+            <td>{{ point.created_at }}</td>
+            <td>{{ point.label }}</td>
+            <td><code>{{ point.filename }}</code></td>
+            <td>
+              <form method="POST" action="{{ url_for('wft.backup_apply_restore_point', filename=point.filename) }}" style="display:inline"
+                    onsubmit="return confirm('Apply this restore point? Current data will be overwritten after a pre-restore snapshot is created.')">
+                <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
+              </form>
+              <form method="POST" action="{{ url_for('wft.backup_delete_restore_point', filename=point.filename) }}" style="display:inline"
+                    onsubmit="return confirm('Delete this restore point?')">
+                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:var(--muted)">No restore points yet.</p>
+  {% endif %}
 </div>
 
 <!-- Individual CSV exports -->

@@ -185,6 +185,46 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-icon">🛡️</div>
+      <h2>System Health</h2>
+      {% set c = integrity_counts.critical or 0 %}
+      {% set m = integrity_counts.major or 0 %}
+      {% set n = integrity_counts.minor or 0 %}
+      {% set healthy = (c + m + n) == 0 %}
+
+      <p style="margin-bottom:.55rem">
+        {% if healthy %}
+          <span class="badge badge-health-good">Healthy</span>
+        {% else %}
+          <span class="badge badge-health-warning">Needs Attention</span>
+        {% endif %}
+      </p>
+
+      <p style="margin-bottom:.75rem">
+        Integrity:
+        <span class="badge badge-health-critical">Critical {{ c }}</span>
+        <span class="badge badge-health-major">Major {{ m }}</span>
+        <span class="badge badge-health-minor">Minor {{ n }}</span>
+        <span class="badge badge-health-info">Restore Points {{ restore_points_count or 0 }}</span>
+      </p>
+      <div class="btn-group">
+        <a class="btn btn-secondary" href="{{ url_for('wft.integrity_scan') }}">🩺 Integrity</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.audit_trail') }}">🧾 Audit Trail</a>
+        <a class="btn btn-secondary" href="{{ url_for('wft.backup') }}">🗄️ Backups</a>
+      </div>
+      {% if recent_audit_events %}
+      <div style="margin-top:.75rem">
+        <p class="note" style="margin-bottom:.4rem">Latest Events</p>
+        <ul style="margin:0; padding-left:1rem; color:var(--muted); font-size:.86rem">
+          {% for event in recent_audit_events %}
+          <li>{{ event.timestamp }} · {{ event.action }} · {{ event.target }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
   </div>
 </section>
 

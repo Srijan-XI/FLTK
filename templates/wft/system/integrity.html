@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Integrity Scanner{% endblock %}
+
+{% block content %}
+<h1 class="page-title">🩺 Data Integrity Scanner</h1>
+
+<div class="card" style="margin-bottom:1rem">
+  <p style="color:var(--muted); font-size:.92rem; margin-bottom:1rem">
+    Detects malformed JSON and broken references across core data files.
+    Use guided repair for safe automatic fixes.
+  </p>
+
+  <div class="btn-group" style="justify-content:flex-start">
+    <a class="btn btn-secondary" href="{{ url_for('wft.integrity_scan') }}">Run Scan</a>
+    <form method="POST" action="{{ url_for('wft.integrity_repair') }}" style="display:inline"
+          onsubmit="return confirm('Run guided repair for safe issues?')">
+      <button type="submit" class="btn btn-primary">Run Guided Repair</button>
+    </form>
+  </div>
+
+  <p class="note" style="margin-top:.75rem">
+    Scan time: <code>{{ report.checked_at }}</code>
+    | Critical: <strong>{{ report.counts.critical }}</strong>
+    | Major: <strong>{{ report.counts.major }}</strong>
+    | Minor: <strong>{{ report.counts.minor }}</strong>
+  </p>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h2>Detected Issues</h2>
+  {% if report.issues %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>File</th>
+          <th>Code</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for issue in report.issues %}
+        <tr>
+          <td>{{ issue.severity }}</td>
+          <td>{{ issue.file }}</td>
+          <td><code>{{ issue.code }}</code></td>
+          <td>{{ issue.message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <p style="color:var(--muted)">No integrity issues detected.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>Repair Actions</h2>
+  {% if report.repairs %}
+    <ul>
+      {% for repair in report.repairs %}
+        <li>{{ repair }}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p style="color:var(--muted)">No repairs applied in this run.</p>
+  {% endif %}
+</div>
+{% endblock %}

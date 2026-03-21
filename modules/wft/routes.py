@@ -1713,7 +1713,12 @@ def financial_snapshot_pdf():
 
 @wft_bp.route("/backup")
 def backup():
-    return render_template("wft/system/backup.html")
+    report = h.scan_data_integrity(auto_repair=False)
+    return render_template(
+        "wft/system/backup.html",
+        restore_points=h.list_restore_points(),
+        integrity_counts=report.get("counts", {}),
+    )
 
 
 @wft_bp.route("/backup/download")
@@ -1736,6 +1741,7 @@ def backup_restore():
     if not f.filename.endswith(".zip"):
         flash("Please upload a .zip backup file.", "error")
         return redirect(url_for("wft.backup"))
+    h.create_restore_point(label="Auto pre-restore snapshot", reason="pre-restore")
     restored, errors = h.restore_from_zip(f.read())
     if restored:
         flash(f"Restored: {', '.join(restored)}", "success")
@@ -1743,6 +1749,61 @@ def backup_restore():
         for e in errors:
             flash(f"Error: {e}", "error")
     return redirect(url_for("wft.backup"))
+
+
+@wft_bp.route("/backup/restore-points/create", methods=["POST"])
+def backup_create_restore_point():
+    label = (request.form.get("label") or "").strip()
+    point = h.create_restore_point(label=label, reason="manual")
+    flash(f"Restore point created: {point['filename']}", "success")
+    return redirect(url_for("wft.backup"))
+
+
+@wft_bp.route("/backup/restore-points/<path:filename>/apply", methods=["POST"])
+def backup_apply_restore_point(filename):
+    h.create_restore_point(label="Auto pre-restore-point snapshot", reason="pre-restore-point")
+    restored, errors = h.restore_restore_point(filename)
+    if restored:
+        flash(f"Restore point applied. Restored: {', '.join(restored)}", "success")
+    if errors:
+        for err in errors:
+            flash(err, "error")
+    return redirect(url_for("wft.backup"))
+
+
+@wft_bp.route("/backup/restore-points/<path:filename>/delete", methods=["POST"])
+def backup_delete_restore_point(filename):
+    if h.delete_restore_point(filename):
+        flash("Restore point deleted.", "info")
+    else:
+        flash("Restore point not found.", "error")
+    return redirect(url_for("wft.backup"))
+
+
+@wft_bp.route("/audit")
+def audit_trail():
+    limit = request.args.get("limit", default=200, type=int)
+    return render_template("wft/system/audit.html", entries=h.get_audit_trail(limit=max(limit, 1)))
+
+
+@wft_bp.route("/integrity")
+def integrity_scan():
+    report = h.scan_data_integrity(auto_repair=False)
+    current_app.config["INTEGRITY_REPORT"] = report
+    return render_template("wft/system/integrity.html", report=report)
+
+
+@wft_bp.route("/integrity/repair", methods=["POST"])
+def integrity_repair():
+    report = h.scan_data_integrity(auto_repair=True)
+    current_app.config["INTEGRITY_REPORT"] = report
+    if report["repairs"]:
+        flash(f"Integrity repair applied: {len(report['repairs'])} fix(es).", "success")
+    else:
+        flash("No automatic repairs were needed.", "info")
+    if report["issues"]:
+        flash(f"Scanner found {len(report['issues'])} issue(s). Review details below.", "error")
+    return redirect(url_for("wft.integrity_scan"))
 
 
 # ── CRM ──────────────────────────────────────────────────────────────────────

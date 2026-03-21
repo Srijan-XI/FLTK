@@ -8,7 +8,9 @@ import logging
 import os
 import calendar
 import tempfile
-from datetime import date, datetime, timedelta
+import io
+import zipfile
+from datetime import date, datetime, timedelta, timezone
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +33,102 @@ CONTRACT_TYPES = [
 
 QUOTE_STATUS_OPTIONS = ["draft", "sent", "accepted", "rejected", "expired"]
 BLOCK_TYPES = ["blocked", "vacation", "meeting", "holiday"]
+
+AUDIT_FILE = "audit_log.json"
+BACKUP_INDEX_FILE = "backup_index.json"
+BACKUP_RETENTION = 20
+
+
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _safe_slug(value: str) -> str:
+    cleaned = "".join(ch.lower() if ch.isalnum() else "-" for ch in value.strip())
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-") or "snapshot"
+
+
+def _safe_load_path(path: str, fallback):
+    if not os.path.exists(path):
+        return fallback
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return fallback
+
+
+def _write_json_atomic_path(path: str, payload):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp_path, path)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _request_audit_meta() -> dict:
+    try:
+        from flask import has_request_context, request
+    except Exception:
+        return {
+            "actor": "system",
+            "source": "local",
+            "endpoint": "",
+            "method": "",
+        }
+
+    if not has_request_context():
+        return {
+            "actor": "system",
+            "source": "local",
+            "endpoint": "",
+            "method": "",
+        }
+
+    return {
+        "actor": "local-user",
+        "source": request.remote_addr or "local",
+        "endpoint": request.endpoint or "",
+        "method": request.method,
+    }
+
+
+def _append_audit_event(action: str, target: str, details: dict | None = None):
+    path = os.path.join(DATA_DIR, AUDIT_FILE)
+    entries = _safe_load_path(path, [])
+    if not isinstance(entries, list):
+        entries = []
+    entry = {
+        "id": int(datetime.now(timezone.utc).timestamp() * 1000),
+        "timestamp": _now_utc(),
+        "action": action,
+        "target": target,
+        "details": details or {},
+    }
+    entry.update(_request_audit_meta())
+    entries.append(entry)
+    # Keep latest 5k events to avoid unbounded growth.
+    if len(entries) > 5000:
+        entries = entries[-5000:]
+    _write_json_atomic_path(path, entries)
+
+
+def get_audit_trail(limit: int = 200) -> list:
+    entries = _safe_load_path(os.path.join(DATA_DIR, AUDIT_FILE), [])
+    if not isinstance(entries, list):
+        entries = []
+    if limit <= 0:
+        return list(reversed(entries))
+    return list(reversed(entries[-limit:]))
 
 
 def _load(filename: str) -> list:
@@ -74,6 +172,11 @@ def _save(filename: str, data: list):
     crash or disk-full error never leaves the target file truncated/empty.
     """
     path = os.path.join(DATA_DIR, filename)
+    before_count = None
+    if os.path.exists(path):
+        existing = _safe_load_path(path, [])
+        if isinstance(existing, list):
+            before_count = len(existing)
     os.makedirs(DATA_DIR, exist_ok=True)
     dir_ = os.path.dirname(path)
     fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
@@ -81,6 +184,15 @@ def _save(filename: str, data: list):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp_path, path)  # atomic on POSIX and Windows
+        if filename != AUDIT_FILE:
+            _append_audit_event(
+                "data.write",
+                filename,
+                {
+                    "records_before": before_count,
+                    "records_after": len(data),
+                },
+            )
     except Exception:
         try:
             os.unlink(tmp_path)
@@ -946,8 +1058,8 @@ def get_upcoming_milestones(days: int = 14) -> list:
 
 
 def save_settings(settings: dict):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(settings, f, indent=2)
+    _write_json_atomic_path(SETTINGS_FILE, settings)
+    _append_audit_event("settings.write", "settings.json", {"keys": sorted(settings.keys())})
 
 
 # ── Clients ──────────────────────────────────────────────────────────────────
@@ -2437,8 +2549,6 @@ DATA_FILES = [
 
 
 def create_backup_zip() -> bytes:
-    import io
-    import zipfile
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname in DATA_FILES:
@@ -2446,12 +2556,108 @@ def create_backup_zip() -> bytes:
             if os.path.exists(fpath):
                 zf.write(fpath, arcname=fname)
     buf.seek(0)
+    _append_audit_event("backup.export", "backup.zip", {"files": list(DATA_FILES)})
     return buf.read()
 
 
-def restore_from_zip(zip_bytes: bytes) -> list:
-    import io
-    import zipfile
+def _backups_dir() -> str:
+    return os.path.join(DATA_DIR, "backups")
+
+
+def _backup_index_path() -> str:
+    return os.path.join(_backups_dir(), BACKUP_INDEX_FILE)
+
+
+def _enforce_backup_retention(max_points: int = BACKUP_RETENTION):
+    points = _safe_load_path(_backup_index_path(), [])
+    if not isinstance(points, list):
+        points = []
+    if len(points) <= max_points:
+        return
+
+    points.sort(key=lambda p: p.get("created_at", ""), reverse=True)
+    keep = points[:max_points]
+    drop = points[max_points:]
+    for item in drop:
+        fname = item.get("filename", "")
+        if not fname:
+            continue
+        path = os.path.join(_backups_dir(), fname)
+        if os.path.exists(path):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+    _write_json_atomic_path(_backup_index_path(), keep)
+
+
+def create_restore_point(label: str = "", reason: str = "manual") -> dict:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    slug = _safe_slug(label or reason or "restore-point")
+    filename = f"restore-point-{stamp}-{slug}.zip"
+    os.makedirs(_backups_dir(), exist_ok=True)
+    path = os.path.join(_backups_dir(), filename)
+
+    with open(path, "wb") as f:
+        f.write(create_backup_zip())
+
+    point = {
+        "filename": filename,
+        "label": (label or reason or "restore-point").strip(),
+        "reason": reason,
+        "created_at": _now_utc(),
+    }
+    points = _safe_load_path(_backup_index_path(), [])
+    if not isinstance(points, list):
+        points = []
+    points.append(point)
+    _write_json_atomic_path(_backup_index_path(), points)
+    _enforce_backup_retention(BACKUP_RETENTION)
+    _append_audit_event("backup.restore_point.create", filename, {"label": point["label"], "reason": reason})
+    return point
+
+
+def list_restore_points() -> list:
+    points = _safe_load_path(_backup_index_path(), [])
+    if not isinstance(points, list):
+        return []
+    return sorted(points, key=lambda p: p.get("created_at", ""), reverse=True)
+
+
+def restore_restore_point(filename: str) -> tuple[list, list]:
+    path = os.path.join(_backups_dir(), filename)
+    if not os.path.exists(path):
+        return [], [f"Restore point '{filename}' was not found."]
+
+    with open(path, "rb") as f:
+        restored, errors = restore_from_zip(f.read())
+
+    if restored:
+        _append_audit_event("backup.restore_point.apply", filename, {"restored": restored})
+    return restored, errors
+
+
+def delete_restore_point(filename: str) -> bool:
+    points = _safe_load_path(_backup_index_path(), [])
+    if not isinstance(points, list):
+        points = []
+    remaining = [p for p in points if p.get("filename") != filename]
+    changed = len(remaining) != len(points)
+    if not changed:
+        return False
+
+    _write_json_atomic_path(_backup_index_path(), remaining)
+    path = os.path.join(_backups_dir(), filename)
+    if os.path.exists(path):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+    _append_audit_event("backup.restore_point.delete", filename, {})
+    return True
+
+
+def restore_from_zip(zip_bytes: bytes) -> tuple[list, list]:
     restored = []
     errors = []
     buf = io.BytesIO(zip_bytes)
@@ -2463,12 +2669,196 @@ def restore_from_zip(zip_bytes: bytes) -> list:
                     json.loads(content)  # validate JSON
                     dest = os.path.join(DATA_DIR, name)
                     os.makedirs(DATA_DIR, exist_ok=True)
-                    with open(dest, "wb") as f:
+                    fd, tmp_path = tempfile.mkstemp(dir=DATA_DIR, suffix=".tmp")
+                    with os.fdopen(fd, "wb") as f:
                         f.write(content)
+                    os.replace(tmp_path, dest)
                     restored.append(name)
                 except Exception as exc:
                     errors.append(f"{name}: {exc}")
+    if restored:
+        _append_audit_event("backup.restore_zip", "restore.zip", {"restored": restored, "errors": errors})
     return restored, errors
+
+
+def _read_json_data_file(filename: str):
+    path = os.path.join(DATA_DIR, filename)
+    if not os.path.exists(path):
+        return None, "missing"
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f), "ok"
+    except json.JSONDecodeError as exc:
+        return None, f"invalid_json: {exc}"
+    except OSError as exc:
+        return None, f"io_error: {exc}"
+
+
+def scan_data_integrity(auto_repair: bool = False) -> dict:
+    issues = []
+    repairs = []
+    loaded = {}
+
+    expected = {fname: list for fname in DATA_FILES if fname != "settings.json"}
+    expected["settings.json"] = dict
+
+    for fname in DATA_FILES:
+        payload, status = _read_json_data_file(fname)
+        if status == "missing":
+            continue
+        if status != "ok":
+            issues.append({
+                "severity": "critical",
+                "file": fname,
+                "code": "invalid_json",
+                "message": f"File cannot be parsed: {status}",
+            })
+            continue
+        if not isinstance(payload, expected[fname]):
+            issues.append({
+                "severity": "major",
+                "file": fname,
+                "code": "invalid_top_level",
+                "message": f"Expected {expected[fname].__name__} at top-level.",
+            })
+            if auto_repair:
+                replacement = {} if expected[fname] is dict else []
+                _write_json_atomic_path(os.path.join(DATA_DIR, fname), replacement)
+                loaded[fname] = replacement
+                repairs.append(f"Reset top-level structure for {fname}")
+            continue
+        loaded[fname] = payload
+
+    clients = loaded.get("clients.json", []) if isinstance(loaded.get("clients.json", []), list) else []
+    client_ids = {c.get("id") for c in clients if isinstance(c, dict)}
+    client_names = {c.get("name") for c in clients if isinstance(c, dict) and c.get("name")}
+
+    templates = loaded.get(SDLC_TEMPLATE_FILE, []) if isinstance(loaded.get(SDLC_TEMPLATE_FILE, []), list) else []
+    template_ids = {t.get("id") for t in templates if isinstance(t, dict)}
+
+    projects = loaded.get(SCOPED_PROJECT_FILE, []) if isinstance(loaded.get(SCOPED_PROJECT_FILE, []), list) else []
+    milestones = loaded.get(MILESTONE_FILE, []) if isinstance(loaded.get(MILESTONE_FILE, []), list) else []
+    contracts = loaded.get(CONTRACT_FILE, []) if isinstance(loaded.get(CONTRACT_FILE, []), list) else []
+    invoices = loaded.get("invoices.json", []) if isinstance(loaded.get("invoices.json", []), list) else []
+    quotes = loaded.get(QUOTE_FILE, []) if isinstance(loaded.get(QUOTE_FILE, []), list) else []
+
+    valid_projects = []
+    for project in projects:
+        if not isinstance(project, dict):
+            issues.append({
+                "severity": "major",
+                "file": SCOPED_PROJECT_FILE,
+                "code": "invalid_record",
+                "message": "Non-object project record detected.",
+            })
+            continue
+        cid = project.get("client_id")
+        tid = project.get("template_id")
+        missing = []
+        if cid not in client_ids:
+            missing.append("client_id")
+        if tid not in template_ids:
+            missing.append("template_id")
+        if missing:
+            issues.append({
+                "severity": "major",
+                "file": SCOPED_PROJECT_FILE,
+                "code": "orphan_project",
+                "message": f"Project id={project.get('id')} has missing {'/'.join(missing)} reference.",
+            })
+            if auto_repair:
+                repairs.append(f"Removed orphan project id={project.get('id')}")
+                continue
+        valid_projects.append(project)
+
+    valid_project_ids = {p.get("id") for p in valid_projects if isinstance(p, dict)}
+    valid_milestones = []
+    for milestone in milestones:
+        if not isinstance(milestone, dict):
+            issues.append({
+                "severity": "major",
+                "file": MILESTONE_FILE,
+                "code": "invalid_record",
+                "message": "Non-object milestone record detected.",
+            })
+            continue
+        if milestone.get("project_id") not in valid_project_ids:
+            issues.append({
+                "severity": "major",
+                "file": MILESTONE_FILE,
+                "code": "orphan_milestone",
+                "message": f"Milestone id={milestone.get('id')} references missing project.",
+            })
+            if auto_repair:
+                repairs.append(f"Removed orphan milestone id={milestone.get('id')}")
+                continue
+        valid_milestones.append(milestone)
+
+    valid_contracts = []
+    for contract in contracts:
+        if not isinstance(contract, dict):
+            issues.append({
+                "severity": "major",
+                "file": CONTRACT_FILE,
+                "code": "invalid_record",
+                "message": "Non-object contract record detected.",
+            })
+            continue
+        cid = contract.get("client_id")
+        if cid is not None and cid not in client_ids:
+            issues.append({
+                "severity": "minor",
+                "file": CONTRACT_FILE,
+                "code": "orphan_contract_client",
+                "message": f"Contract id={contract.get('id')} references missing client_id.",
+            })
+            if auto_repair:
+                contract = {**contract, "client_id": None}
+                repairs.append(f"Cleared missing client reference in contract id={contract.get('id')}")
+        valid_contracts.append(contract)
+
+    for invoice in invoices:
+        if isinstance(invoice, dict):
+            cname = invoice.get("client_name")
+            if cname and cname not in client_names:
+                issues.append({
+                    "severity": "minor",
+                    "file": "invoices.json",
+                    "code": "unknown_client_name",
+                    "message": f"Invoice id={invoice.get('id')} references unknown client_name.",
+                })
+
+    for quote in quotes:
+        if isinstance(quote, dict):
+            cname = quote.get("client_name")
+            if cname and cname not in client_names:
+                issues.append({
+                    "severity": "minor",
+                    "file": QUOTE_FILE,
+                    "code": "unknown_client_name",
+                    "message": f"Quote id={quote.get('id')} references unknown client_name.",
+                })
+
+    if auto_repair:
+        if valid_projects != projects:
+            _save(SCOPED_PROJECT_FILE, valid_projects)
+        if valid_milestones != milestones:
+            _save(MILESTONE_FILE, valid_milestones)
+        if valid_contracts != contracts:
+            _save(CONTRACT_FILE, valid_contracts)
+        if repairs:
+            _append_audit_event("integrity.repair", "data", {"repairs": repairs, "issue_count": len(issues)})
+
+    return {
+        "checked_at": _now_utc(),
+        "issues": issues,
+        "repairs": repairs,
+        "counts": {
+            "critical": sum(1 for i in issues if i["severity"] == "critical"),
+            "major": sum(1 for i in issues if i["severity"] == "major"),
+            "minor": sum(1 for i in issues if i["severity"] == "minor"),
+        },
+    }
 
 
 # ── Tax Estimator ─────────────────────────────────────────────────────────────
