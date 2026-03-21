@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Weekly Reviews{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('home') }}">← Home</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📝 Weekly Reviews</h1>
+    <p class="subtitle" style="margin-bottom:0">Reflect on your week: what went well, what to improve, and priorities for next week.</p>
+  </div>
+  <a class="btn btn-primary" href="{{ url_for('wft.new_weekly_review') }}">+ New Review</a>
+</div>
+
+<form method="GET" action="{{ url_for('wft.weekly_reviews') }}" class="card" style="margin-bottom:1.5rem; padding:1rem">
+  <div style="display:flex; gap:.75rem; align-items:center">
+    <input type="text" name="q" placeholder="Search reviews..." value="{{ query }}" style="flex:1">
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if query %}<a class="btn btn-secondary" href="{{ url_for('wft.weekly_reviews') }}">Clear</a>{% endif %}
+  </div>
+</form>
+
+{% if reviews %}
+<div style="display: grid; gap: 1rem">
+  {% for review in reviews %}
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem">
+      <div>
+        <h2 style="margin: 0 0 0.25rem 0">Week of {{ review.week_start }}</h2>
+        <p class="muted-text" style="margin: 0; font-size: 0.85rem">Created {{ review.created_at }}</p>
+      </div>
+      <div class="btn-group" style="margin-top: 0">
+        <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.weekly_review_detail', review_id=review.id) }}">View</a>
+        <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.edit_weekly_review', review_id=review.id) }}">Edit</a>
+        <form method="POST" action="{{ url_for('wft.delete_weekly_review', review_id=review.id) }}" style="display:inline" onsubmit="return confirm('Delete this review?')">
+          <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem">
+      <div>
+        <h3 style="margin: 0 0 0.5rem 0; color: #2ecc71; font-size: 0.95rem">✓ Went Well</h3>
+        <p style="margin: 0; white-space: pre-wrap; color: #34495e">{{ review.went_well }}</p>
+      </div>
+      <div>
+        <h3 style="margin: 0 0 0.5rem 0; color: #f39c12; font-size: 0.95rem">⚠ To Improve</h3>
+        <p style="margin: 0; white-space: pre-wrap; color: #34495e">{{ review.improve }}</p>
+      </div>
+    </div>
+
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ecf0f1">
+      <h3 style="margin: 0 0 0.5rem 0; color: #3498db; font-size: 0.95rem">📍 Next Priority</h3>
+      <p style="margin: 0; white-space: pre-wrap; color: #34495e">{{ review.next_priority }}</p>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📝</div>
+  {% if query %}
+  <p>No reviews match "{{ query }}".</p>
+  {% else %}
+  <p>No weekly reviews yet. Start your first review!</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

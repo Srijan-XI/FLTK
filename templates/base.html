@@ -42,12 +42,14 @@
           <a href="{{ url_for('wft.expenses') }}" class="{% if endpoint == 'wft.expenses' %}nav-active{% endif %}">💸 Expenses</a>
           <a href="{{ url_for('wft.tax_estimator') }}" class="{% if endpoint == 'wft.tax_estimator' %}nav-active{% endif %}">🧮 Tax Estimator</a>
           <a href="{{ url_for('wft.reports') }}" class="{% if endpoint == 'wft.reports' %}nav-active{% endif %}">📊 Profitability</a>
+          <a href="{{ url_for('wft.financial_snapshot') }}" class="{% if endpoint == 'wft.financial_snapshot' %}nav-active{% endif %}">💰 Financial Snapshot</a>
         </div>
       </div>
       <div class="nav-group" id="system-nav-group">
         <span class="nav-label {% if system_active %}nav-active{% endif %}" id="system-label">System ▾</span>
         <div class="dropdown" id="system-dropdown">
           <a href="{{ url_for('wft.settings') }}" class="{% if endpoint == 'wft.settings' %}nav-active{% endif %}">⚙️ Settings</a>
+          <a href="{{ url_for('wft.weekly_reviews') }}" class="{% if endpoint == 'wft.weekly_reviews' %}nav-active{% endif %}">📝 Weekly Reviews</a>
           <div class="dropdown-sep" role="separator" aria-hidden="true"></div>
           <a href="{{ url_for('wft.backup') }}" class="{% if endpoint == 'wft.backup' %}nav-active{% endif %}">🗄️ Backup</a>
         </div>

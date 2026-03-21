@@ -1530,6 +1530,25 @@ def reports():
     return render_template("wft/finance/reports.html", rows=rows, cfg=cfg, summary=summary, overdue=overdue)
 
 
+@wft_bp.route("/finance/snapshot")
+def financial_snapshot():
+    cfg = h.get_settings()
+    snap = h.get_financial_snapshot()
+    return render_template("wft/finance/snapshot.html", snap=snap, cfg=cfg)
+
+
+@wft_bp.route("/finance/snapshot/pdf")
+def financial_snapshot_pdf():
+    cfg = h.get_settings()
+    snap = h.get_financial_snapshot()
+    return _render_pdf_response(
+        "wft/finance/finance_snapshot_print.html",
+        {"snap": snap, "cfg": cfg},
+        "financial_snapshot.pdf",
+        "wft.financial_snapshot",
+    )
+
+
 # ── Data Backup & Restore ────────────────────────────────────────────────────
 
 @wft_bp.route("/backup")
@@ -1588,6 +1607,7 @@ def crm_client(client_id):
     cfg = h.get_settings()
     scoped_projects = h.get_client_scoped_projects(client_id)
     pinned_notes = [n for n in h.get_client_notes(client_id) if n.get("pinned")][:3]
+    rate_history = sorted(client.get("rate_history", []), key=lambda x: x.get("from", ""), reverse=True)
     return render_template(
         "wft/clients/crm_client.html",
         client=client,
@@ -1600,7 +1620,34 @@ def crm_client(client_id):
         crm_types=h.CRM_TYPES,
         cfg=cfg,
         pinned_notes=pinned_notes,
+        rate_history=rate_history,
     )
+
+
+@wft_bp.route("/clients/<int:client_id>/rate", methods=["POST"])
+def add_client_rate(client_id):
+    client = h.get_client(client_id)
+    if not client:
+        flash("Client not found.", "error")
+        return redirect(url_for("wft.clients"))
+
+    try:
+        rate = float(request.form.get("rate", 0) or 0)
+    except ValueError:
+        flash("Rate must be a valid number.", "error")
+        return redirect(url_for("wft.crm_client", client_id=client_id))
+
+    from_date = request.form.get("from_date", "").strip()
+    note = request.form.get("note", "")
+
+    try:
+        h.add_client_rate_entry(client_id, rate, from_date, note)
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("wft.crm_client", client_id=client_id))
+
+    flash("Rate history updated.", "success")
+    return redirect(url_for("wft.crm_client", client_id=client_id))
 
 
 @wft_bp.route("/crm/<int:client_id>/add", methods=["POST"])
@@ -1681,6 +1728,95 @@ def delete_client_note(client_id, note_id):
     else:
         flash("Note not found.", "error")
     return redirect(url_for("wft.client_notes", client_id=client_id))
+
+
+# ── N6: Weekly Reviews ──────────────────────────────────────────────────────────
+
+@wft_bp.route("/reviews")
+def weekly_reviews():
+    reviews = h.get_weekly_reviews()
+    query = request.args.get("q", "").strip()
+    if query:
+        reviews = h.search_reviews(query)
+    return render_template("wft/system/weekly_reviews.html", reviews=reviews, query=query)
+
+
+@wft_bp.route("/reviews/new", methods=["GET", "POST"])
+def new_weekly_review():
+    from datetime import datetime, timedelta
+
+    # Calculate Monday of this week
+    today = datetime.today()
+    monday = (today - timedelta(days=today.weekday())).date()
+
+    if request.method == "POST":
+        f = request.form
+        week_start = f.get("week_start", monday.isoformat())
+        went_well = f.get("went_well", "").strip()
+        improve = f.get("improve", "").strip()
+        next_priority = f.get("next_priority", "").strip()
+
+        if not went_well or not improve or not next_priority:
+            flash("All fields are required.", "error")
+            return redirect(url_for("wft.new_weekly_review"))
+
+        review = h.save_weekly_review(week_start, went_well, improve, next_priority)
+        flash(f"Weekly review saved for week of {week_start}.", "success")
+        return redirect(url_for("wft.weekly_review_detail", review_id=review["id"]))
+
+    prefill = h.build_weekly_prefill(monday.isoformat())
+    return render_template(
+        "wft/system/weekly_review_form.html",
+        review=None,
+        prefill=prefill,
+        week_start=monday.isoformat()
+    )
+
+
+@wft_bp.route("/reviews/<int:review_id>")
+def weekly_review_detail(review_id):
+    review = h.get_weekly_review(review_id)
+    if not review:
+        flash("Review not found.", "error")
+        return redirect(url_for("wft.weekly_reviews"))
+    return render_template("wft/system/weekly_review_detail.html", review=review)
+
+
+@wft_bp.route("/reviews/<int:review_id>/edit", methods=["GET", "POST"])
+def edit_weekly_review(review_id):
+    review = h.get_weekly_review(review_id)
+    if not review:
+        flash("Review not found.", "error")
+        return redirect(url_for("wft.weekly_reviews"))
+
+    if request.method == "POST":
+        f = request.form
+        went_well = f.get("went_well", "").strip()
+        improve = f.get("improve", "").strip()
+        next_priority = f.get("next_priority", "").strip()
+
+        if not went_well or not improve or not next_priority:
+            flash("All fields are required.", "error")
+            return redirect(url_for("wft.edit_weekly_review", review_id=review_id))
+
+        updated = h.update_weekly_review(review_id, went_well, improve, next_priority)
+        if updated:
+            flash("Review updated.", "success")
+            return redirect(url_for("wft.weekly_review_detail", review_id=review_id))
+        else:
+            flash("Failed to update review.", "error")
+            return redirect(url_for("wft.weekly_reviews"))
+
+    return render_template("wft/system/weekly_review_form.html", review=review, prefill=None)
+
+
+@wft_bp.route("/reviews/<int:review_id>/delete", methods=["POST"])
+def delete_weekly_review(review_id):
+    if h.delete_weekly_review(review_id):
+        flash("Review deleted.", "info")
+    else:
+        flash("Review not found.", "error")
+    return redirect(url_for("wft.weekly_reviews"))
 
 
 @wft_bp.route("/clients/<int:client_id>/notes/<int:note_id>/pin", methods=["POST"])

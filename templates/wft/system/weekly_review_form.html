@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{% if review %}Edit{% else %}New{% endif %} Weekly Review{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.weekly_reviews') }}">← Back to Reviews</a>
+
+<div class="page-header">
+  <h1 class="page-title">{% if review %}Edit Review{% else %}New Weekly Review{% endif %}</h1>
+</div>
+
+<form method="POST" class="card" style="max-width: 800px">
+  {% if not review %}
+  <div class="form-group">
+    <label>Week Starting</label>
+    <input type="date" name="week_start" value="{{ week_start or '' }}" required>
+    <small class="muted-text">Monday of the week you're reflecting on.</small>
+  </div>
+  {% endif %}
+
+  {% if prefill %}
+  <div class="card" style="background: #f8f9fa; margin-bottom: 1.5rem; padding: 1rem">
+    <h3 style="margin: 0 0 0.75rem 0">📊 This Week's Stats</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem">
+      <div>
+        <div class="muted-text">Hours Logged</div>
+        <div style="font-weight: 600">{{ "%.1f"|format(prefill.total_hours) }}h</div>
+      </div>
+      <div>
+        <div class="muted-text">Income Generated</div>
+        <div style="font-weight: 600">${{ "%.2f"|format(prefill.total_income) }}</div>
+      </div>
+      {% if prefill.top_clients %}
+      <div style="grid-column: 1 / -1">
+        <div class="muted-text">Top Clients</div>
+        <div style="font-weight: 600">
+          {% for client, hours in prefill.top_clients %}
+          {{ client }} ({{ "%.1f"|format(hours) }}h){% if not loop.last %} · {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="form-group">
+    <label>✓ What Went Well?</label>
+    <textarea name="went_well" placeholder="What am I proud of? What worked well this week?" required rows="4">{{ review.went_well if review else '' }}</textarea>
+    <small class="muted-text">Celebrate your wins — big and small.</small>
+  </div>
+
+  <div class="form-group">
+    <label>⚠ What to Improve?</label>
+    <textarea name="improve" placeholder="What didn't go as planned? What could be better?" required rows="4">{{ review.improve if review else '' }}</textarea>
+    <small class="muted-text">Honest reflection on challenges and growth areas.</small>
+  </div>
+
+  <div class="form-group">
+    <label>📍 Next Priority</label>
+    <textarea name="next_priority" placeholder="What's the top thing to focus on next week?" required rows="3">{{ review.next_priority if review else '' }}</textarea>
+    <small class="muted-text">One primary focus to carry into the next week.</small>
+  </div>
+
+  <div class="form-group" style="margin-top: 1.5rem">
+    <button type="submit" class="btn btn-primary">{% if review %}Update Review{% else %}Save Review{% endif %}</button>
+    <a href="{{ url_for('wft.weekly_reviews') }}" class="btn btn-secondary">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

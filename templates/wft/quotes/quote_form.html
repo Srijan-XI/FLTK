@@ -60,8 +60,8 @@
           </tr>
         </thead>
         <tbody id="items-body">
-          {% if quote and quote.items %}
-            {% for item in quote.items %}
+          {% if quote and quote['items'] %}
+            {% for item in quote['items'] %}
             <tr>
               <td><input type="text" name="description" value="{{ item.description }}" required /></td>
               <td><input type="number" name="qty" min="0" step="0.1" class="qty-inp" value="{{ item.qty }}" /></td>
@@ -99,8 +99,12 @@
   </form>
 </div>
 
+<div id="quote-currency-map" data-map='{{ currencies | tojson }}' hidden></div>
+
 <script>
-  const CURRENCY_SYMBOLS = {{ currencies | tojson }};
+  const CURRENCY_SYMBOLS = JSON.parse(
+    document.getElementById('quote-currency-map')?.dataset.map || '{}'
+  );
 
   function getCurSym() {
     const sel = document.getElementById('currency-select');

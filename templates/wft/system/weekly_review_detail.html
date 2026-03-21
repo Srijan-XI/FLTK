@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Review for Week of {{ review.week_start }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.weekly_reviews') }}">← Back to Reviews</a>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Week of {{ review.week_start }}</h1>
+    <p class="subtitle" style="margin-bottom:0">Created {{ review.created_at }}</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <a class="btn btn-secondary" href="{{ url_for('wft.edit_weekly_review', review_id=review.id) }}">Edit</a>
+    <form method="POST" action="{{ url_for('wft.delete_weekly_review', review_id=review.id) }}" style="display:inline" onsubmit="return confirm('Delete this review?')">
+      <button class="btn btn-danger" type="submit">Delete</button>
+    </form>
+  </div>
+</div>
+
+<div style="display: grid; gap: 1.5rem">
+  <div class="card" style="border-left: 4px solid #2ecc71">
+    <h2 style="margin: 0 0 0.75rem 0; color: #2ecc71">✓ What Went Well</h2>
+    <p style="margin: 0; white-space: pre-wrap; color: #34495e; line-height: 1.6">{{ review.went_well }}</p>
+  </div>
+
+  <div class="card" style="border-left: 4px solid #f39c12">
+    <h2 style="margin: 0 0 0.75rem 0; color: #f39c12">⚠ What to Improve</h2>
+    <p style="margin: 0; white-space: pre-wrap; color: #34495e; line-height: 1.6">{{ review.improve }}</p>
+  </div>
+
+  <div class="card" style="border-left: 4px solid #3498db">
+    <h2 style="margin: 0 0 0.75rem 0; color: #3498db">📍 Next Priority</h2>
+    <p style="margin: 0; white-space: pre-wrap; color: #34495e; line-height: 1.6">{{ review.next_priority }}</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem">
+  <a href="{{ url_for('wft.edit_weekly_review', review_id=review.id) }}" class="btn btn-primary">Edit This Review</a>
+  <a href="{{ url_for('wft.new_weekly_review') }}" class="btn btn-secondary">New Review</a>
+  <a href="{{ url_for('wft.weekly_reviews') }}" class="btn btn-secondary">All Reviews</a>
+</div>
+
+{% endblock %}

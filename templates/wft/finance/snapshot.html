@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Financial Snapshot{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.reports') }}">← Back to Reports</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">💰 Financial Snapshot</h1>
+    <p class="subtitle" style="margin-bottom:0">One-page overview of current business health.</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <a class="btn btn-secondary" href="{{ url_for('wft.financial_snapshot_pdf') }}">⬇ Export PDF</a>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1.25rem; flex-wrap:wrap">
+  <div class="isb-item">
+    <span class="isb-val success">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_income) }}</span>
+    <span class="isb-lbl">YTD Income</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val danger">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_expenses) }}</span>
+    <span class="isb-lbl">YTD Expenses</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val {{ 'success' if snap.ytd_net >= 0 else 'danger' }}">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_net) }}</span>
+    <span class="isb-lbl">YTD Net</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.tax_estimate) }}</span>
+    <span class="isb-lbl">Estimated Tax</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val warning">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.outstanding) }}</span>
+    <span class="isb-lbl">Outstanding A/R</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val primary">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.effective_hourly) }}/h</span>
+    <span class="isb-lbl">Effective Hourly</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.avg_invoice_value) }}</span>
+    <span class="isb-lbl">Avg Invoice</span>
+  </div>
+</div>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:1rem; align-items:start">
+  <div class="card">
+    <h2 style="margin-top:0">Last 6 Months</h2>
+    <canvas id="snapshotTrend" height="130"></canvas>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0">Top Clients (YTD)</h2>
+    {% if snap.top_clients %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th style="text-align:right">Revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in snap.top_clients %}
+        <tr>
+          <td>{{ row.client }}</td>
+          <td style="text-align:right"><strong>{{ cfg.currency_symbol }}{{ "%.2f"|format(row.income) }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state" style="padding:1.25rem">
+      <p>No paid invoices this year yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
+<script>
+const months = {{ snap.months | tojson }};
+const labels = months.map(m => m.month);
+const income = months.map(m => m.income);
+const expenses = months.map(m => m.expenses);
+const net = months.map(m => m.net);
+
+const rootStyle = getComputedStyle(document.documentElement);
+const chartText = rootStyle.getPropertyValue('--muted').trim() || '#7d8ba1';
+const chartGrid = rootStyle.getPropertyValue('--border').trim() || '#293648';
+const chartPrimary = rootStyle.getPropertyValue('--primary').trim() || '#19a9bc';
+const chartSuccess = rootStyle.getPropertyValue('--success').trim() || '#2ec489';
+const chartDanger = rootStyle.getPropertyValue('--danger').trim() || '#df5b57';
+
+Chart.defaults.color = chartText;
+Chart.defaults.borderColor = chartGrid;
+
+new Chart(document.getElementById('snapshotTrend'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [
+      {
+        label: 'Income',
+        data: income,
+        backgroundColor: `${chartSuccess}B3`,
+        borderRadius: 5,
+      },
+      {
+        label: 'Expenses',
+        data: expenses,
+        backgroundColor: `${chartDanger}B3`,
+        borderRadius: 5,
+      },
+      {
+        label: 'Net',
+        data: net,
+        type: 'line',
+        borderColor: chartPrimary,
+        backgroundColor: `${chartPrimary}33`,
+        tension: 0.35,
+        yAxisID: 'y',
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    scales: {
+      y: { beginAtZero: true },
+    },
+  }
+});
+</script>
+{% endblock %}

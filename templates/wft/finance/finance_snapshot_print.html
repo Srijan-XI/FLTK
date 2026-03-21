@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Financial Snapshot</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; color: #2c3e50; line-height: 1.45; }
+    .page { padding: 36px; }
+    .header { margin-bottom: 22px; }
+    .title { font-size: 24px; font-weight: bold; }
+    .subtitle { margin-top: 4px; color: #7f8c8d; font-size: 11px; }
+    .grid { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .grid td { width: 25%; padding: 10px; border: 1px solid #e2e8f0; vertical-align: top; }
+    .label { font-size: 10px; color: #7f8c8d; text-transform: uppercase; margin-bottom: 4px; }
+    .value { font-size: 15px; font-weight: bold; }
+    .section-title { font-size: 13px; font-weight: bold; margin: 14px 0 8px 0; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #34495e; color: #fff; text-align: left; font-size: 11px; padding: 7px; }
+    td { border-bottom: 1px solid #ecf0f1; font-size: 11px; padding: 7px; }
+    .right { text-align: right; }
+    .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #7f8c8d; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title">Financial Snapshot</div>
+      <div class="subtitle">{{ cfg.business }} · Year-to-date overview</div>
+    </div>
+
+    <table class="grid">
+      <tr>
+        <td>
+          <div class="label">YTD Income</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_income) }}</div>
+        </td>
+        <td>
+          <div class="label">YTD Expenses</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_expenses) }}</div>
+        </td>
+        <td>
+          <div class="label">YTD Net</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.ytd_net) }}</div>
+        </td>
+        <td>
+          <div class="label">Estimated Tax</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.tax_estimate) }}</div>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <div class="label">Outstanding A/R</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.outstanding) }}</div>
+        </td>
+        <td>
+          <div class="label">Effective Hourly</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.effective_hourly) }}/h</div>
+        </td>
+        <td>
+          <div class="label">Average Invoice</div>
+          <div class="value">{{ cfg.currency_symbol }}{{ "%.2f"|format(snap.avg_invoice_value) }}</div>
+        </td>
+        <td>
+          <div class="label">Tax Rate Used</div>
+          <div class="value">{{ "%.1f"|format(snap.tax_rate_used) }}%</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="section-title">Top Clients (YTD Revenue)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th class="right">Revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in snap.top_clients %}
+        <tr>
+          <td>{{ row.client }}</td>
+          <td class="right">{{ cfg.currency_symbol }}{{ "%.2f"|format(row.income) }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="2">No paid invoices this year.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="section-title">Monthly Breakdown (Last 6 Months)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th class="right">Income</th>
+          <th class="right">Expenses</th>
+          <th class="right">Net</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in snap.months %}
+        <tr>
+          <td>{{ row.month }}</td>
+          <td class="right">{{ cfg.currency_symbol }}{{ "%.2f"|format(row.income) }}</td>
+          <td class="right">{{ cfg.currency_symbol }}{{ "%.2f"|format(row.expenses) }}</td>
+          <td class="right">{{ cfg.currency_symbol }}{{ "%.2f"|format(row.net) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="footer">
+      Generated snapshot report.
+    </div>
+  </div>
+</body>
+</html>

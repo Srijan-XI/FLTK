@@ -53,6 +53,56 @@
   </div>
 </div>
 
+<div class="card" style="margin-top:1.25rem">
+  <div class="card-header-row">
+    <h2>Rate History</h2>
+  </div>
+  <div class="two-col" style="grid-template-columns: 1.4fr 1fr; gap: 1rem; align-items: start;">
+    <div>
+      {% if rate_history %}
+      <div class="history-list">
+        {% for entry in rate_history %}
+        <div class="card history-card" style="border-left:4px solid var(--primary)">
+          <div class="history-meta" style="display:flex; justify-content:space-between; gap:.75rem; flex-wrap:wrap">
+            <div>
+              <strong>{{ entry.from }}</strong>
+              <span class="muted-text">effective date</span>
+            </div>
+            <span class="badge" style="background:rgba(79,142,247,.2);color:var(--primary)">
+              {{ cfg.currency_symbol }}{{ "%.2f"|format(entry.rate) }}/h
+            </span>
+          </div>
+          {% if entry.note %}
+          <p style="margin-top:.35rem">{{ entry.note }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:1.25rem">
+        <p>No historical entries yet. Add the first rate revision for this client.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card" style="margin:0">
+      <h3 style="margin-top:0">Add Rate Entry</h3>
+      <form method="POST" action="{{ url_for('wft.add_client_rate', client_id=client.id) }}">
+        <label>Rate *</label>
+        <input type="number" name="rate" step="0.01" min="0.01" required placeholder="e.g. 75">
+
+        <label style="margin-top:.75rem">From Date *</label>
+        <input type="date" name="from_date" required>
+
+        <label style="margin-top:.75rem">Note</label>
+        <input type="text" name="note" maxlength="120" placeholder="Annual increase, retainer adjustment, etc.">
+
+        <button type="submit" class="btn btn-primary btn-full" style="margin-top:1rem">Save Rate Entry</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div class="two-col">
   <!-- Interaction log form -->
   <div class="card">

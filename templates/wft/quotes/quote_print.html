@@ -23,7 +23,7 @@
   <table>
     <thead><tr><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
     <tbody>
-      {% for item in quote.items %}
+      {% for item in quote['items'] %}
       <tr>
         <td>{{ item.description }}</td>
         <td>{{ item.qty }}</td>

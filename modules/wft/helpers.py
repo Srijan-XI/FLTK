@@ -808,6 +808,7 @@ def add_client(name: str, email: str, phone: str = "", notes: str = "",
         "currency_symbol": currency_symbol,
         "status": status,
         "website": website,
+        "rate_history": [],
         "created": date.today().isoformat(),
     }
     clients.append(client)
@@ -2445,3 +2446,174 @@ def search_reviews(query: str) -> list:
         or q in r.get("improve", "").lower()
         or q in r.get("next_priority", "").lower()
     ]
+
+
+# ── N7: CLIENT RATE & REVISION HISTORY ───────────────────────────────────────
+
+def get_client_rate_at(client_id: int, date_str: str) -> float:
+    """Return applicable client hourly rate at a specific date."""
+    client = get_client(client_id)
+    if not client:
+        return 0.0
+
+    try:
+        target = date.fromisoformat((date_str or "").strip()).isoformat()
+    except ValueError:
+        target = date.today().isoformat()
+
+    default_rate = float(client.get("default_rate", 0.0) or 0.0)
+    history = sorted(client.get("rate_history", []), key=lambda e: e.get("from", ""))
+
+    applicable = [entry for entry in history if entry.get("from", "") <= target]
+    if not applicable:
+        return default_rate
+
+    try:
+        return float(applicable[-1].get("rate", default_rate) or default_rate)
+    except (TypeError, ValueError):
+        return default_rate
+
+
+def add_client_rate_entry(client_id: int, rate: float, from_date: str, note: str = "") -> dict:
+    """Append a new rate history entry for a client and keep history sorted."""
+    if rate <= 0:
+        raise ValueError("Rate must be greater than zero.")
+    try:
+        effective_from = date.fromisoformat((from_date or "").strip()).isoformat()
+    except ValueError as exc:
+        raise ValueError("Invalid effective date.") from exc
+
+    clients = _load("clients.json")
+    for client in clients:
+        if client.get("id") == client_id:
+            history = list(client.get("rate_history", []))
+            entry = {
+                "rate": float(rate),
+                "from": effective_from,
+                "note": note.strip(),
+            }
+            history.append(entry)
+            history.sort(key=lambda e: e.get("from", ""))
+            client["rate_history"] = history
+            _save("clients.json", clients)
+            return entry
+
+    raise ValueError("Client not found.")
+
+
+# ── N8: FINANCIAL SNAPSHOT ───────────────────────────────────────────────────
+
+def get_financial_snapshot() -> dict:
+    """Aggregate one-page financial KPIs for the current year."""
+    cfg = get_settings()
+    invoices = get_invoices()
+    expenses = get_expenses()
+    workhours = get_workhours()
+    today = date.today()
+    this_year = today.year
+
+    def _safe_float(value, default: float = 0.0) -> float:
+        try:
+            return float(value or 0.0)
+        except (TypeError, ValueError):
+            return default
+
+    def _normalized_total(inv: dict) -> float:
+        if inv.get("total_base") is not None:
+            return _safe_float(inv.get("total_base"))
+        return _safe_float(inv.get("total")) * _safe_float(inv.get("exchange_rate", 1.0), 1.0)
+
+    def _in_year(date_str: str, year: int) -> bool:
+        if not date_str:
+            return False
+        try:
+            return date.fromisoformat(date_str).year == year
+        except ValueError:
+            return False
+
+    paid_ytd = [
+        inv for inv in invoices
+        if inv.get("status") == "paid" and _in_year(inv.get("issue_date", ""), this_year)
+    ]
+    ytd_income = round(sum(_normalized_total(inv) for inv in paid_ytd), 2)
+
+    ytd_expenses = round(sum(
+        _safe_float(exp.get("amount"))
+        for exp in expenses
+        if _in_year(exp.get("date", ""), this_year)
+    ), 2)
+    ytd_net = round(ytd_income - ytd_expenses, 2)
+
+    ytd_hours = round(sum(
+        _safe_float(row.get("hours"))
+        for row in workhours
+        if _in_year(row.get("date", ""), this_year)
+    ), 2)
+    effective_hourly = round(ytd_income / ytd_hours, 2) if ytd_hours > 0 else 0.0
+    avg_invoice_value = round(ytd_income / len(paid_ytd), 2) if paid_ytd else 0.0
+
+    outstanding = round(sum(
+        _normalized_total(inv)
+        for inv in invoices
+        if inv.get("status") != "paid"
+    ), 2)
+
+    tax_rate = _safe_float(cfg.get("tax_rate", 20.0), 20.0)
+    tax_estimate = estimate_tax(ytd_income, tax_rate, ytd_expenses)
+
+    # Last 6 months including current month, chronological order.
+    month_cursor = date(today.year, today.month, 1)
+    month_keys = []
+    for _ in range(6):
+        month_keys.append(month_cursor.strftime("%Y-%m"))
+        if month_cursor.month == 1:
+            month_cursor = date(month_cursor.year - 1, 12, 1)
+        else:
+            month_cursor = date(month_cursor.year, month_cursor.month - 1, 1)
+    month_keys.reverse()
+
+    income_by_month: dict[str, float] = {k: 0.0 for k in month_keys}
+    expenses_by_month: dict[str, float] = {k: 0.0 for k in month_keys}
+
+    for inv in paid_ytd:
+        month = (inv.get("issue_date", "") or "")[:7]
+        if month in income_by_month:
+            income_by_month[month] = round(income_by_month[month] + _normalized_total(inv), 2)
+
+    for exp in expenses:
+        month = (exp.get("date", "") or "")[:7]
+        if month in expenses_by_month:
+            expenses_by_month[month] = round(expenses_by_month[month] + _safe_float(exp.get("amount")), 2)
+
+    months = []
+    for month in month_keys:
+        inc = income_by_month.get(month, 0.0)
+        exp = expenses_by_month.get(month, 0.0)
+        months.append({
+            "month": month,
+            "income": round(inc, 2),
+            "expenses": round(exp, 2),
+            "net": round(inc - exp, 2),
+        })
+
+    top_clients_map: dict[str, float] = {}
+    for inv in paid_ytd:
+        name = inv.get("client_name", "Unknown") or "Unknown"
+        top_clients_map[name] = round(top_clients_map.get(name, 0.0) + _normalized_total(inv), 2)
+    top_clients = [
+        {"client": client, "income": amount}
+        for client, amount in sorted(top_clients_map.items(), key=lambda x: x[1], reverse=True)[:5]
+    ]
+
+    return {
+        "ytd_income": ytd_income,
+        "ytd_expenses": ytd_expenses,
+        "ytd_net": ytd_net,
+        "tax_estimate": tax_estimate.get("annual_tax", 0.0),
+        "tax_rate_used": tax_rate,
+        "outstanding": outstanding,
+        "effective_hourly": effective_hourly,
+        "avg_invoice_value": avg_invoice_value,
+        "months": months,
+        "top_clients": top_clients,
+    }
