@@ -78,6 +78,39 @@
   </div>
   {% endif %}
 
+  <div class="card" style="margin-top:1rem">
+    <h2 style="margin-top:0">Recurring Invoice</h2>
+    {% if inv.get('recurring') %}
+    <p style="margin:.35rem 0">
+      🔁 Enabled: <strong>{{ inv.get('recur_interval', 'monthly') | title }}</strong>
+      {% if inv.get('last_generated') %}
+      · Last generated {{ inv.get('last_generated') }}
+      {% endif %}
+    </p>
+    {% else %}
+    <p class="muted-text" style="margin:.35rem 0">This invoice is not a recurring template.</p>
+    {% endif %}
+    <div class="btn-group" style="justify-content:flex-start; margin-top:.5rem">
+      <form method="POST" action="{{ url_for('wft.toggle_recurring_invoice', inv_id=inv.id) }}">
+        <button class="btn btn-secondary" type="submit">
+          {% if inv.get('recurring') %}Disable Recurring{% else %}Enable Recurring{% endif %}
+        </button>
+      </form>
+      {% if inv.get('recurring') %}
+      <form method="POST" action="{{ url_for('wft.set_recurring_invoice_interval', inv_id=inv.id) }}" style="display:flex; gap:.5rem; align-items:center">
+        <select name="recur_interval">
+          {% for interval in ['weekly', 'monthly', 'quarterly'] %}
+          <option value="{{ interval }}" {% if inv.get('recur_interval') == interval %}selected{% endif %}>{{ interval | title }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-secondary" type="submit">Save Interval</button>
+      </form>
+      {% endif %}
+      <a class="btn btn-secondary" href="{{ url_for('wft.recurring_invoices') }}">Recurring Dashboard</a>
+    </div>
+    <p class="muted-text" style="margin-top:.5rem">Templates due now: {{ recurring_due_count or 0 }}</p>
+  </div>
+
   <!-- SDLC Model Reference -->
   {% if inv.get('sdlc_model_id') %}
     {% set selected_model = sdlc_templates | selectattr('id', 'equalto', inv['sdlc_model_id']) | first %}

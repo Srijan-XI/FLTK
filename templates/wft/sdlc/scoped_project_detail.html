@@ -35,6 +35,11 @@
     <span class="isb-val success">{{ project.target_date or '—' }}</span>
     <span class="isb-lbl">Target</span>
   </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val muted">{{ "%.2f"|format(project.get('total_value', 0) or 0) }}</span>
+    <span class="isb-lbl">Project Value</span>
+  </div>
 </div>
 
 <div id="project-copy-source">
@@ -85,6 +90,31 @@
     {% endif %}
   </div>
   {% endif %}
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:.75rem; flex-wrap:wrap">
+      <h2 style="margin:0">Milestones</h2>
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('wft.project_milestones', proj_id=project.id) }}">Open Milestone Manager</a>
+    </div>
+    {% if milestones %}
+    <table class="data-table" style="margin-top:.75rem">
+      <thead><tr><th>Name</th><th>Due</th><th>%</th><th>Amount</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for ms in milestones %}
+        <tr>
+          <td>{{ ms.name }}</td>
+          <td>{{ ms.due_date }}</td>
+          <td>{{ "%.2f"|format(ms.percent) }}%</td>
+          <td>{{ "%.2f"|format(ms.amount) }}</td>
+          <td><span class="badge">{{ ms.status.replace('_', ' ') | title }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="muted-text" style="margin-top:.75rem">No milestones added yet.</p>
+    {% endif %}
+  </div>
 
   <div class="two-col">
     <div class="card">

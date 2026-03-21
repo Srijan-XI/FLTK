@@ -39,11 +39,21 @@ app.register_blueprint(wft_bp)
 
 @app.route("/")
 def home():
-    from modules.wft.helpers import get_earnings_summary, get_settings
+    from modules.wft.helpers import (
+        get_earnings_summary,
+        get_settings,
+        get_due_recurring_invoices,
+        get_upcoming_milestones,
+    )
     summary = get_earnings_summary()
     cfg = get_settings()
     summary["currency_symbol"] = cfg.get("currency_symbol", "$")
-    return render_template("home.html", earnings_summary=summary)
+    return render_template(
+        "home.html",
+        earnings_summary=summary,
+        recurring_due_count=len(get_due_recurring_invoices()),
+        upcoming_milestones_count=len(get_upcoming_milestones(14)),
+    )
 
 
 if __name__ == "__main__":

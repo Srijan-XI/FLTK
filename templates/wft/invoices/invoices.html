@@ -6,8 +6,15 @@
   <h1 class="page-title">🧾 Invoices</h1>
   <div class="btn-group">
     <a class="btn btn-secondary" href="{{ url_for('wft.invoice_ageing') }}">📊 A/R Ageing</a>
+    <a class="btn btn-secondary" href="{{ url_for('wft.recurring_invoices') }}">🔁 Recurring</a>
     <a class="btn btn-primary" href="{{ url_for('wft.new_invoice') }}">+ New Invoice</a>
   </div>
+</div>
+
+<div style="margin-bottom:1rem; display:flex; gap:.5rem; flex-wrap:wrap">
+  <a class="badge" style="padding:.5rem 1rem; border-radius:20px; text-decoration:none; background:{% if view != 'recurring' %}#4f8ef7{% else %}#ecf0f1{% endif %}; color:{% if view != 'recurring' %}white{% else %}#34495e{% endif %}" href="{{ url_for('wft.invoices') }}">All</a>
+  <a class="badge" style="padding:.5rem 1rem; border-radius:20px; text-decoration:none; background:{% if view == 'recurring' %}#4f8ef7{% else %}#ecf0f1{% endif %}; color:{% if view == 'recurring' %}white{% else %}#34495e{% endif %}" href="{{ url_for('wft.invoices', view='recurring') }}">Recurring Templates</a>
+  <span class="badge" style="padding:.5rem 1rem; border-radius:20px">Due now: {{ recurring_due_count or 0 }}</span>
 </div>
 
 <!-- Summary bar -->
@@ -71,6 +78,9 @@
         <td>{{ inv.issue_date }}</td>
         <td>
           {{ inv.due_date }}
+          {% if inv.get('recurring') %}
+          <span class="badge" style="margin-left:.3rem">🔁 {{ inv.get('recur_interval', 'monthly') }}</span>
+          {% endif %}
           {% if inv.status != 'paid' and inv.due_date < today %} <span class="badge badge-overdue">OVERDUE</span>
             {% endif %}
         </td>

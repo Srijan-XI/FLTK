@@ -164,6 +164,27 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-icon">🔁</div>
+      <h2>Recurring Invoices</h2>
+      <p>{{ recurring_due_count or 0 }} template{{ '' if (recurring_due_count or 0) == 1 else 's' }} due for generation.</p>
+      <div class="btn-group">
+        <a class="btn btn-secondary" href="{{ url_for('wft.recurring_invoices') }}">Open Recurring</a>
+        <form method="POST" action="{{ url_for('wft.generate_all_recurring_invoices') }}">
+          <button class="btn btn-primary" type="submit">Generate All</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-icon">📍</div>
+      <h2>Upcoming Milestones</h2>
+      <p>{{ upcoming_milestones_count or 0 }} milestone{{ '' if (upcoming_milestones_count or 0) == 1 else 's' }} due in the next 14 days.</p>
+      <div class="btn-group">
+        <a class="btn btn-primary" href="{{ url_for('wft.scoped_projects') }}">View Projects →</a>
+      </div>
+    </div>
+
   </div>
 </section>
 

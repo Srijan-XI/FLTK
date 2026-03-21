@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Milestones - {{ project.project_name }}{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.scoped_project_detail', project_id=project.id) }}">← Back to Project</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">📍 Milestones — {{ project.project_name }}</h1>
+    <p class="subtitle" style="margin-bottom:0">Client: {{ project.client_name }} · Total value: {{ "%.2f"|format(project.get('total_value', 0) or 0) }}</p>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1rem; justify-content:flex-start">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ milestones | length }}</span>
+    <span class="isb-lbl">Milestones</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val success">{{ "%.2f"|format(completion_percent) }}%</span>
+    <span class="isb-lbl">Invoiced/Paid</span>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1rem">
+  <h2 style="margin-top:0">Add Milestone</h2>
+  <form method="POST" action="{{ url_for('wft.add_project_milestone', proj_id=project.id) }}">
+    <div class="form-row">
+      <label>Name *
+        <input type="text" name="name" required placeholder="Design mockups" />
+      </label>
+      <label>Due Date *
+        <input type="date" name="due_date" required />
+      </label>
+      <label>Percent *
+        <input type="number" name="percent" min="0.01" max="100" step="0.01" required placeholder="30" />
+      </label>
+    </div>
+    <label>Notes
+      <input type="text" name="notes" placeholder="Optional notes" />
+    </label>
+    <button class="btn btn-primary" type="submit" style="margin-top:.75rem">Add Milestone</button>
+  </form>
+</div>
+
+{% if milestones %}
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Due</th><th>%</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+      {% for ms in milestones %}
+      <tr>
+        <td>
+          <strong>{{ ms.name }}</strong>
+          {% if ms.notes %}<br><small class="muted-text">{{ ms.notes }}</small>{% endif %}
+        </td>
+        <td>{{ ms.due_date }}</td>
+        <td>{{ "%.2f"|format(ms.percent) }}%</td>
+        <td>{{ "%.2f"|format(ms.amount) }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('wft.update_project_milestone_status', proj_id=project.id, ms_id=ms.id) }}" style="display:flex; gap:.5rem; align-items:center">
+            <select name="status">
+              {% for status in ['pending', 'delivered', 'invoiced', 'paid'] %}
+              <option value="{{ status }}" {% if ms.status == status %}selected{% endif %}>{{ status | title }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-secondary btn-sm" type="submit">Save</button>
+          </form>
+        </td>
+        <td class="action-cell">
+          {% if ms.status in ['pending', 'delivered'] and not ms.invoice_id %}
+          <form method="POST" action="{{ url_for('wft.create_invoice_for_milestone', proj_id=project.id, ms_id=ms.id) }}" style="display:inline">
+            <button class="btn btn-primary btn-sm" type="submit">Create Invoice</button>
+          </form>
+          {% endif %}
+          <form method="POST" action="{{ url_for('wft.delete_project_milestone', proj_id=project.id, ms_id=ms.id) }}" style="display:inline" onsubmit="return confirm('Delete this milestone?')">
+            <button class="btn btn-danger btn-sm" type="submit">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">📍</div>
+  <p>No milestones yet.</p>
+</div>
+{% endif %}
+{% endblock %}

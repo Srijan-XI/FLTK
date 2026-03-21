@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Recurring Invoices{% endblock %}
+
+{% block content %}
+<a class="back-link" href="{{ url_for('wft.invoices') }}">← Back to Invoices</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">🔁 Recurring Invoice Templates</h1>
+    <p class="subtitle" style="margin-bottom:0">Manage template invoices and generate due cycles.</p>
+  </div>
+  <div class="btn-group" style="margin-top:0">
+    <form method="POST" action="{{ url_for('wft.generate_all_recurring_invoices') }}">
+      <button class="btn btn-primary" type="submit">Generate All Due</button>
+    </form>
+  </div>
+</div>
+
+<div class="invoice-summary-bar" style="margin-bottom:1rem">
+  <div class="isb-item">
+    <span class="isb-val primary">{{ templates | length }}</span>
+    <span class="isb-lbl">Templates</span>
+  </div>
+  <div class="isb-sep"></div>
+  <div class="isb-item">
+    <span class="isb-val warning">{{ due | length }}</span>
+    <span class="isb-lbl">Due Now</span>
+  </div>
+</div>
+
+{% if templates %}
+<div class="card">
+  <table class="data-table">
+    <thead><tr><th>#</th><th>Client</th><th>Interval</th><th>Last Generated</th><th>Due</th><th></th></tr></thead>
+    <tbody>
+      {% for inv in templates %}
+      {% set is_due = (due | selectattr('id', 'equalto', inv.id) | list | length) > 0 %}
+      <tr>
+        <td>{{ inv.invoice_number }}</td>
+        <td>{{ inv.client_name }}</td>
+        <td>{{ inv.get('recur_interval', 'monthly') | title }}</td>
+        <td>{{ inv.get('last_generated') or inv.issue_date }}</td>
+        <td>{% if is_due %}<span class="badge badge-overdue">Due</span>{% else %}<span class="muted-text">Not due</span>{% endif %}</td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.invoice_detail', inv_id=inv.id) }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🔁</div>
+  <p>No recurring templates yet. Open an invoice and enable recurring.</p>
+</div>
+{% endif %}
+{% endblock %}

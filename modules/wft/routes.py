@@ -314,6 +314,7 @@ def new_scoped_project():
             status=f.get("status", "draft"),
             start_date=f.get("start_date", ""),
             target_date=f.get("target_date", ""),
+            total_value=float(f.get("total_value", 0) or 0),
         )
         flash("Scoped project saved.", "success")
         return redirect(url_for("wft.scoped_project_detail", project_id=project["id"]))
@@ -338,7 +339,8 @@ def scoped_project_detail(project_id):
         return redirect(url_for("wft.scoped_projects"))
     template = h.get_sdlc_template(project.get("template_id"))
     scope = h.get_scope_status(project_id)
-    return render_template("wft/sdlc/scoped_project_detail.html", project=project, template=template, scope=scope)
+    milestones = h.get_milestones(project_id)
+    return render_template("wft/sdlc/scoped_project_detail.html", project=project, template=template, scope=scope, milestones=milestones)
 
 
 @wft_bp.route("/sdlc/projects/<int:project_id>/edit", methods=["GET", "POST"])
@@ -383,9 +385,76 @@ def edit_scoped_project(project_id):
             status=f.get("status", "draft"),
             start_date=f.get("start_date", ""),
             target_date=f.get("target_date", ""),
+            total_value=float(f.get("total_value", 0) or 0),
         )
         flash("Scoped project updated.", "success")
         return redirect(url_for("wft.scoped_project_detail", project_id=project_id))
+
+
+@wft_bp.route("/sdlc/projects/<int:proj_id>/milestones")
+def project_milestones(proj_id):
+    project = h.get_scoped_project(proj_id)
+    if not project:
+        flash("Scoped project not found.", "error")
+        return redirect(url_for("wft.scoped_projects"))
+    milestones = h.get_milestones(proj_id)
+    completion_percent = round(sum(
+        float(m.get("percent", 0) or 0)
+        for m in milestones
+        if m.get("status") in {"invoiced", "paid"}
+    ), 2)
+    return render_template(
+        "wft/sdlc/project_milestones.html",
+        project=project,
+        milestones=milestones,
+        completion_percent=completion_percent,
+    )
+
+
+@wft_bp.route("/sdlc/projects/<int:proj_id>/milestones/add", methods=["POST"])
+def add_project_milestone(proj_id):
+    try:
+        h.add_milestone(
+            project_id=proj_id,
+            name=request.form.get("name", ""),
+            due_date=request.form.get("due_date", ""),
+            percent=float(request.form.get("percent", 0) or 0),
+            notes=request.form.get("notes", ""),
+        )
+        flash("Milestone added.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.project_milestones", proj_id=proj_id))
+
+
+@wft_bp.route("/sdlc/projects/<int:proj_id>/milestones/<int:ms_id>/status", methods=["POST"])
+def update_project_milestone_status(proj_id, ms_id):
+    try:
+        h.update_milestone_status(ms_id, request.form.get("status", "pending"))
+        flash("Milestone status updated.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.project_milestones", proj_id=proj_id))
+
+
+@wft_bp.route("/sdlc/projects/<int:proj_id>/milestones/<int:ms_id>/invoice", methods=["POST"])
+def create_invoice_for_milestone(proj_id, ms_id):
+    try:
+        invoice = h.create_invoice_from_milestone(ms_id)
+        flash(f"Invoice {invoice['invoice_number']} created for milestone.", "success")
+        return redirect(url_for("wft.invoice_detail", inv_id=invoice["id"]))
+    except ValueError as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("wft.project_milestones", proj_id=proj_id))
+
+
+@wft_bp.route("/sdlc/projects/<int:proj_id>/milestones/<int:ms_id>/delete", methods=["POST"])
+def delete_project_milestone(proj_id, ms_id):
+    if h.delete_milestone(ms_id):
+        flash("Milestone deleted.", "info")
+    else:
+        flash("Only pending milestones can be deleted.", "error")
+    return redirect(url_for("wft.project_milestones", proj_id=proj_id))
 
     return render_template(
         "wft/sdlc/scoped_project_form.html",
@@ -566,6 +635,7 @@ def invoices():
     invs = h.get_invoices()
     from datetime import date
     today = date.today().isoformat()
+    view = request.args.get("view", "")
     summary = h.get_earnings_summary()
     cfg = h.get_settings()
     overdue_map = {inv["id"]: inv for inv in h.get_overdue_invoices()}
@@ -576,7 +646,53 @@ def invoices():
         inv["display_total"] = h.get_invoice_display_total(inv)
         inv["base_total"] = float(inv.get("total_base", (inv.get("total", 0.0) or 0.0) * float(inv.get("exchange_rate", 1.0) or 1.0)) or 0.0)
         inv["base_currency"] = inv.get("base_currency") or cfg.get("currency", "USD")
-    return render_template("wft/invoices/invoices.html", invoices=invs, today=today, summary=summary)
+    if view == "recurring":
+        invs = [inv for inv in invs if inv.get("recurring")]
+    return render_template(
+        "wft/invoices/invoices.html",
+        invoices=invs,
+        today=today,
+        summary=summary,
+        recurring_due_count=len(h.get_due_recurring_invoices()),
+        view=view,
+    )
+
+
+@wft_bp.route("/invoices/recurring")
+def recurring_invoices():
+    return render_template(
+        "wft/invoices/recurring.html",
+        templates=h.get_recurring_templates(),
+        due=h.get_due_recurring_invoices(),
+    )
+
+
+@wft_bp.route("/invoices/recurring/generate-all", methods=["POST"])
+def generate_all_recurring_invoices():
+    created = h.generate_all_due_recurring()
+    flash(f"Generated {len(created)} recurring invoice(s).", "success")
+    return redirect(url_for("wft.invoices"))
+
+
+@wft_bp.route("/invoices/<int:inv_id>/recurring/toggle", methods=["POST"])
+def toggle_recurring_invoice(inv_id):
+    try:
+        invoice = h.toggle_invoice_recurring(inv_id)
+        msg = "Recurring enabled." if invoice.get("recurring") else "Recurring disabled."
+        flash(msg, "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.invoice_detail", inv_id=inv_id))
+
+
+@wft_bp.route("/invoices/<int:inv_id>/recurring/set-interval", methods=["POST"])
+def set_recurring_invoice_interval(inv_id):
+    try:
+        h.set_invoice_recurring_interval(inv_id, request.form.get("recur_interval", ""))
+        flash("Recurring interval updated.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+    return redirect(url_for("wft.invoice_detail", inv_id=inv_id))
 
 
 @wft_bp.route("/invoices/overdue")
@@ -686,7 +802,13 @@ def invoice_detail(inv_id):
     cfg = h.get_settings()
     inv["display_total"] = h.get_invoice_display_total(inv)
     sdlc_templates = h.get_sdlc_templates()
-    return render_template("wft/invoices/invoice_detail.html", inv=inv, cfg=cfg, sdlc_templates=sdlc_templates)
+    return render_template(
+        "wft/invoices/invoice_detail.html",
+        inv=inv,
+        cfg=cfg,
+        sdlc_templates=sdlc_templates,
+        recurring_due_count=len(h.get_due_recurring_invoices()),
+    )
 
 
 @wft_bp.route("/invoices/pay/<int:inv_id>", methods=["POST"])
@@ -1514,6 +1636,8 @@ def search():
         "notes": [],
         "quotes": [],
         "contracts": [],
+        "milestones": [],
+        "weekly_reviews": [],
     }
     total = sum(len(v) for v in results.values())
     return render_template("wft/system/search.html", results=results, query=q, total=total)
