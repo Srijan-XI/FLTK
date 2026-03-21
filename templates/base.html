@@ -11,9 +11,11 @@
 </head>
 <body>
   {% set endpoint = request.endpoint or '' %}
-  {% set system_endpoints = ['wft.settings', 'wft.backup'] %}
-  {% set workflow_active = endpoint.startswith('wft.') and endpoint not in system_endpoints %}
-  {% set system_active = endpoint in system_endpoints %}
+  {% set projects_active = endpoint.startswith('wft.sdlc_') or endpoint.startswith('wft.scoped_') or endpoint in ['wft.templates', 'wft.template_detail', 'wft.new_template', 'wft.edit_template'] %}
+  {% set clients_active = endpoint.startswith('wft.client') or endpoint.startswith('wft.crm_') %}
+  {% set billing_active = endpoint.startswith('wft.quote') or endpoint.startswith('wft.invoice') or endpoint.startswith('wft.contract') or endpoint in ['wft.recurring_invoices', 'wft.generate_all_recurring_invoices', 'wft.toggle_recurring_invoice', 'wft.set_recurring_invoice_interval'] %}
+  {% set operations_active = endpoint in ['wft.hours', 'wft.timer', 'wft.calendar', 'wft.expenses', 'wft.tax_estimator', 'wft.reports', 'wft.financial_snapshot', 'wft.financial_snapshot_pdf'] %}
+  {% set system_active = endpoint in ['wft.settings', 'wft.weekly_reviews', 'wft.new_weekly_review', 'wft.weekly_review_detail', 'wft.edit_weekly_review', 'wft.backup'] %}
   <div class="ambient-orb ambient-orb-a" aria-hidden="true"></div>
   <div class="ambient-orb ambient-orb-b" aria-hidden="true"></div>
   <header class="navbar">
@@ -24,18 +26,41 @@
     </button>
 
     <nav id="main-nav">
+      <a href="{{ url_for('home') }}" class="{% if endpoint == 'home' %}nav-active{% endif %}">Home</a>
       <a href="{{ url_for('drp.index') }}" class="{% if endpoint == 'drp.index' %}nav-active{% endif %}">Deadline Predictor</a>
       <a href="{{ url_for('drp.history') }}" class="{% if endpoint == 'drp.history' %}nav-active{% endif %}">DRP History</a>
-      <div class="nav-group" id="wft-nav-group">
-        <span class="nav-label {% if workflow_active %}nav-active{% endif %}" id="wft-label">Workflow ▾</span>
-        <div class="dropdown" id="wft-dropdown">
+
+      <div class="nav-group" data-nav-group>
+        <span class="nav-label {% if projects_active %}nav-active{% endif %}" data-nav-label>Projects ▾</span>
+        <div class="dropdown" data-nav-dropdown>
           <a href="{{ url_for('wft.templates') }}" class="{% if endpoint == 'wft.templates' %}nav-active{% endif %}">📄 Proposal Templates</a>
           <a href="{{ url_for('wft.sdlc_templates') }}" class="{% if endpoint == 'wft.sdlc_templates' %}nav-active{% endif %}">🧩 SDLC Templates</a>
           <a href="{{ url_for('wft.scoped_projects') }}" class="{% if endpoint == 'wft.scoped_projects' %}nav-active{% endif %}">🗂 Scoped Projects</a>
+        </div>
+      </div>
+
+      <div class="nav-group" data-nav-group>
+        <span class="nav-label {% if clients_active %}nav-active{% endif %}" data-nav-label>Clients ▾</span>
+        <div class="dropdown" data-nav-dropdown>
           <a href="{{ url_for('wft.clients') }}" class="{% if endpoint == 'wft.clients' %}nav-active{% endif %}">👥 Clients</a>
+          <a href="{{ url_for('wft.search') }}" class="{% if endpoint == 'wft.search' %}nav-active{% endif %}">🔍 Search</a>
+        </div>
+      </div>
+
+      <div class="nav-group" data-nav-group>
+        <span class="nav-label {% if billing_active %}nav-active{% endif %}" data-nav-label>Billing ▾</span>
+        <div class="dropdown" data-nav-dropdown>
           <a href="{{ url_for('wft.quotes') }}" class="{% if endpoint == 'wft.quotes' %}nav-active{% endif %}">💼 Quotes</a>
           <a href="{{ url_for('wft.invoices') }}" class="{% if endpoint == 'wft.invoices' %}nav-active{% endif %}">🧾 Invoices</a>
+          <a href="{{ url_for('wft.recurring_invoices') }}" class="{% if endpoint == 'wft.recurring_invoices' %}nav-active{% endif %}">🔁 Recurring Invoices</a>
+          <a href="{{ url_for('wft.invoice_ageing') }}" class="{% if endpoint == 'wft.invoice_ageing' %}nav-active{% endif %}">📊 A/R Ageing</a>
           <a href="{{ url_for('wft.contracts') }}" class="{% if endpoint == 'wft.contracts' %}nav-active{% endif %}">📝 Contracts</a>
+        </div>
+      </div>
+
+      <div class="nav-group" data-nav-group>
+        <span class="nav-label {% if operations_active %}nav-active{% endif %}" data-nav-label>Operations ▾</span>
+        <div class="dropdown" data-nav-dropdown>
           <a href="{{ url_for('wft.hours') }}" class="{% if endpoint == 'wft.hours' %}nav-active{% endif %}">⏱ Work Hours</a>
           <a href="{{ url_for('wft.timer') }}" class="{% if endpoint == 'wft.timer' %}nav-active{% endif %}">⏱ Live Timer</a>
           <a href="{{ url_for('wft.calendar') }}" class="{% if endpoint == 'wft.calendar' %}nav-active{% endif %}">📅 Calendar</a>
@@ -45,9 +70,10 @@
           <a href="{{ url_for('wft.financial_snapshot') }}" class="{% if endpoint == 'wft.financial_snapshot' %}nav-active{% endif %}">💰 Financial Snapshot</a>
         </div>
       </div>
-      <div class="nav-group" id="system-nav-group">
-        <span class="nav-label {% if system_active %}nav-active{% endif %}" id="system-label">System ▾</span>
-        <div class="dropdown" id="system-dropdown">
+
+      <div class="nav-group" data-nav-group>
+        <span class="nav-label {% if system_active %}nav-active{% endif %}" data-nav-label>System ▾</span>
+        <div class="dropdown" data-nav-dropdown>
           <a href="{{ url_for('wft.settings') }}" class="{% if endpoint == 'wft.settings' %}nav-active{% endif %}">⚙️ Settings</a>
           <a href="{{ url_for('wft.weekly_reviews') }}" class="{% if endpoint == 'wft.weekly_reviews' %}nav-active{% endif %}">📝 Weekly Reviews</a>
           <div class="dropdown-sep" role="separator" aria-hidden="true"></div>

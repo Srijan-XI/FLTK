@@ -20,27 +20,36 @@ ham.addEventListener('click', () => {
   ham.classList.toggle('open');
 });
 
-// ── Workflow dropdown (click on mobile, hover on desktop) ───────────────
-const wftGroup = document.getElementById('wft-nav-group');
-const wftLabel = document.getElementById('wft-label');
-const wftDrop  = document.getElementById('wft-dropdown');
-const systemGroup = document.getElementById('system-nav-group');
-const systemLabel = document.getElementById('system-label');
-const systemDrop  = document.getElementById('system-dropdown');
+// ── Navbar dropdown entities (click on mobile, hover on desktop) ─────────
+const navGroups = Array.from(document.querySelectorAll('[data-nav-group]'));
 
-wftLabel.addEventListener('click', () => {
-  systemDrop.classList.remove('open');
-  wftDrop.classList.toggle('open');
-});
+function closeAllDropdowns(except) {
+  navGroups.forEach((group) => {
+    const drop = group.querySelector('[data-nav-dropdown]');
+    if (!drop) return;
+    if (except && drop === except) return;
+    drop.classList.remove('open');
+  });
+}
 
-systemLabel.addEventListener('click', () => {
-  wftDrop.classList.remove('open');
-  systemDrop.classList.toggle('open');
+navGroups.forEach((group) => {
+  const label = group.querySelector('[data-nav-label]');
+  const drop = group.querySelector('[data-nav-dropdown]');
+  if (!label || !drop) return;
+
+  label.addEventListener('click', () => {
+    const willOpen = !drop.classList.contains('open');
+    closeAllDropdowns(drop);
+    if (willOpen) drop.classList.add('open');
+  });
 });
 
 document.addEventListener('click', (e) => {
-  if (!wftGroup.contains(e.target)) wftDrop.classList.remove('open');
-  if (!systemGroup.contains(e.target)) systemDrop.classList.remove('open');
+  navGroups.forEach((group) => {
+    if (group.contains(e.target)) return;
+    const drop = group.querySelector('[data-nav-dropdown]');
+    if (drop) drop.classList.remove('open');
+  });
 });
 
 // ── Toast notifications ─────────────────────────────────────────────────
