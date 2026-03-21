@@ -2303,3 +2303,145 @@ def get_ar_ageing() -> dict:
         "60_plus": buckets["60_plus"],
         "grand_total": grand_total,
     }
+
+
+# ── N6: WEEKLY REVIEW & RETROSPECTIVE ──────────────────────────────────────────
+
+REVIEW_FILE = "weekly_reviews.json"
+
+
+def get_weekly_reviews() -> list:
+    """Get all weekly reviews, sorted by week_start descending."""
+    reviews = _load(REVIEW_FILE)
+    return sorted(reviews, key=lambda r: r.get("week_start", ""), reverse=True)
+
+
+def get_weekly_review(review_id: int) -> dict | None:
+    """Get a single review by ID."""
+    reviews = _load(REVIEW_FILE)
+    return next((r for r in reviews if r.get("id") == review_id), None)
+
+
+def get_review_for_week(week_start_date: str) -> dict | None:
+    """Find existing review for a given week (ISO date string)."""
+    reviews = _load(REVIEW_FILE)
+    return next((r for r in reviews if r.get("week_start") == week_start_date), None)
+
+
+def build_weekly_prefill(week_start_date: str) -> dict:
+    """
+    Build a dict with aggregated weekly stats for prefilling the review form.
+    Returns income, hours logged, top clients, and top tasks for the week.
+    """
+    from datetime import datetime, timedelta
+
+    try:
+        week_start = datetime.strptime(week_start_date, "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        week_start = date.today()
+
+    week_end = week_start + timedelta(days=6)
+    week_start_str = week_start.isoformat()
+    week_end_str = week_end.isoformat()
+
+    # Get hours logged this week
+    all_hours = get_workhours()
+    week_hours = [
+        h for h in all_hours
+        if week_start_str <= h.get("date", "") <= week_end_str
+    ]
+    total_hours = sum(h.get("hours", 0) for h in week_hours)
+
+    # Get invoices issued this week
+    all_invoices = get_invoices()
+    week_invoices = [
+        i for i in all_invoices
+        if week_start_str <= i.get("issue_date", "") <= week_end_str
+    ]
+    week_income = sum(i.get("total_base", i.get("total", 0.0)) for i in week_invoices)
+
+    # Top clients by hours
+    client_hours = {}
+    for h in week_hours:
+        client = h.get("client", "").strip()
+        if client:
+            client_hours[client] = client_hours.get(client, 0) + h.get("hours", 0)
+
+    top_clients = sorted(client_hours.items(), key=lambda x: x[1], reverse=True)[:3]
+
+    # Top tasks
+    task_counts = {}
+    for h in week_hours:
+        task = h.get("task", "").strip()
+        if task:
+            task_counts[task] = task_counts.get(task, 0) + 1
+
+    top_tasks = sorted(task_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    return {
+        "week_start": week_start_date,
+        "week_end": week_end_str,
+        "total_hours": total_hours,
+        "total_income": week_income,
+        "top_clients": top_clients,
+        "top_tasks": top_tasks,
+    }
+
+
+def save_weekly_review(week_start: str, went_well: str, improve: str,
+                       next_priority: str) -> dict:
+    """
+    Save a new weekly review or update existing one for the week.
+    Returns the saved review dict.
+    """
+    reviews = _load(REVIEW_FILE)
+    review_id = max((r["id"] for r in reviews), default=0) + 1
+
+    review = {
+        "id": review_id,
+        "week_start": week_start,
+        "went_well": went_well.strip(),
+        "improve": improve.strip(),
+        "next_priority": next_priority.strip(),
+        "created_at": date.today().isoformat(),
+    }
+    reviews.append(review)
+    _save(REVIEW_FILE, reviews)
+    return review
+
+
+def update_weekly_review(review_id: int, went_well: str, improve: str,
+                         next_priority: str) -> dict | None:
+    """Update an existing review."""
+    reviews = _load(REVIEW_FILE)
+    for r in reviews:
+        if r.get("id") == review_id:
+            r["went_well"] = went_well.strip()
+            r["improve"] = improve.strip()
+            r["next_priority"] = next_priority.strip()
+            _save(REVIEW_FILE, reviews)
+            return r
+    return None
+
+
+def delete_weekly_review(review_id: int) -> bool:
+    """Delete a review by ID."""
+    reviews = _load(REVIEW_FILE)
+    original_len = len(reviews)
+    reviews = [r for r in reviews if r.get("id") != review_id]
+    if len(reviews) < original_len:
+        _save(REVIEW_FILE, reviews)
+        return True
+    return False
+
+
+def search_reviews(query: str) -> list:
+    """Search reviews by went_well, improve, or next_priority text."""
+    q = query.strip().lower()
+    reviews = get_weekly_reviews()
+    return [
+        r for r in reviews
+        if q in r.get("went_well", "").lower()
+        or q in r.get("improve", "").lower()
+        or q in r.get("next_priority", "").lower()
+    ]
