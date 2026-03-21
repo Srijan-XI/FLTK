@@ -19,6 +19,7 @@ EXPENSES_FILE = "expenses.json"
 QUOTE_FILE = "quotes.json"
 TIMER_FILE = "timer_sessions.json"
 CALENDAR_FILE = "calendar_blocks.json"
+MILESTONE_FILE = "milestones.json"
 
 CONTRACT_TYPES = [
     "Service Agreement",
@@ -619,6 +620,10 @@ def delete_sdlc_template(template_id: int):
 
 def _normalize_scoped_project(raw: dict, *, project_id: int | None = None) -> dict:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    try:
+        total_value = round(float(raw.get("total_value") or 0.0), 2)
+    except (TypeError, ValueError):
+        total_value = 0.0
     return {
         "id": project_id if project_id is not None else raw.get("id"),
         "client_id": raw.get("client_id"),
@@ -638,6 +643,7 @@ def _normalize_scoped_project(raw: dict, *, project_id: int | None = None) -> di
         "status": raw.get("status") if raw.get("status") in PROJECT_STATUS_OPTIONS else "draft",
         "start_date": (raw.get("start_date") or "").strip(),
         "target_date": (raw.get("target_date") or "").strip(),
+        "total_value": total_value,
         "created": raw.get("created") or date.today().isoformat(),
         "updated": now,
     }
@@ -685,7 +691,8 @@ def add_scoped_project(client_id: int, template_id: int, project_name: str,
                        notes: str = "",
                        status: str = "draft",
                        start_date: str = "",
-                       target_date: str = "") -> dict:
+                       target_date: str = "",
+                       total_value: float = 0.0) -> dict:
     projects = _load(SCOPED_PROJECT_FILE)
     project = _normalize_scoped_project({
         "client_id": client_id,
@@ -705,6 +712,7 @@ def add_scoped_project(client_id: int, template_id: int, project_name: str,
         "status": status,
         "start_date": start_date,
         "target_date": target_date,
+        "total_value": total_value,
         "created": date.today().isoformat(),
     }, project_id=max((item["id"] for item in projects), default=0) + 1)
     projects.append(project)
@@ -726,7 +734,8 @@ def update_scoped_project(project_id: int, client_id: int, template_id: int,
                           notes: str = "",
                           status: str = "draft",
                           start_date: str = "",
-                          target_date: str = ""):
+                          target_date: str = "",
+                          total_value: float = 0.0):
     projects = _load(SCOPED_PROJECT_FILE)
     for index, project in enumerate(projects):
         if project.get("id") == project_id:
@@ -749,6 +758,7 @@ def update_scoped_project(project_id: int, client_id: int, template_id: int,
                 "status": status,
                 "start_date": start_date,
                 "target_date": target_date,
+                "total_value": total_value,
                 "created": project.get("created"),
             }, project_id=project_id)
             break
@@ -774,6 +784,165 @@ def scoped_project_stats() -> dict:
         "by_status": by_status,
         "by_model": by_model,
     }
+
+
+def get_milestones(project_id: int) -> list:
+    milestones = [m for m in _load(MILESTONE_FILE) if m.get("project_id") == project_id]
+    return sorted(milestones, key=lambda m: m.get("due_date", ""))
+
+
+def get_milestone(milestone_id: int) -> dict | None:
+    return next((m for m in _load(MILESTONE_FILE) if m.get("id") == milestone_id), None)
+
+
+def _project_total_value(project_id: int) -> float:
+    project = get_scoped_project(project_id)
+    if not project:
+        raise ValueError("Project not found.")
+    try:
+        return float(project.get("total_value", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def add_milestone(project_id: int, name: str, due_date: str, percent: float, notes: str = "") -> dict:
+    if not name.strip():
+        raise ValueError("Milestone name is required.")
+    try:
+        pct = float(percent)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Percent must be a number.") from exc
+    if pct <= 0:
+        raise ValueError("Percent must be greater than zero.")
+    try:
+        due = date.fromisoformat((due_date or "").strip()).isoformat()
+    except ValueError as exc:
+        raise ValueError("Invalid due date.") from exc
+
+    milestones = _load(MILESTONE_FILE)
+    used_pct = sum(float(m.get("percent", 0) or 0) for m in milestones if m.get("project_id") == project_id)
+    if used_pct + pct > 100.0 + 1e-9:
+        raise ValueError("Milestone percentages exceed 100% for this project.")
+
+    total_value = _project_total_value(project_id)
+    amount = round(total_value * pct / 100.0, 2)
+    milestone = {
+        "id": max((m.get("id", 0) for m in milestones), default=0) + 1,
+        "project_id": project_id,
+        "name": name.strip(),
+        "due_date": due,
+        "percent": round(pct, 2),
+        "amount": amount,
+        "status": "pending",
+        "invoice_id": None,
+        "notes": notes.strip(),
+    }
+    milestones.append(milestone)
+    _save(MILESTONE_FILE, milestones)
+    return milestone
+
+
+def update_milestone(milestone_id: int, **fields) -> dict | None:
+    milestones = _load(MILESTONE_FILE)
+    target = next((m for m in milestones if m.get("id") == milestone_id), None)
+    if not target:
+        return None
+
+    project_id = target.get("project_id")
+    if "name" in fields:
+        target["name"] = (fields.get("name") or target.get("name", "")).strip()
+    if "due_date" in fields and fields.get("due_date"):
+        target["due_date"] = date.fromisoformat(fields.get("due_date")).isoformat()
+    if "notes" in fields:
+        target["notes"] = (fields.get("notes") or "").strip()
+    if "status" in fields and fields.get("status"):
+        target["status"] = fields.get("status")
+    if "invoice_id" in fields:
+        target["invoice_id"] = fields.get("invoice_id")
+
+    if "percent" in fields and fields.get("percent") is not None:
+        pct = float(fields.get("percent"))
+        if pct <= 0:
+            raise ValueError("Percent must be greater than zero.")
+        used_pct = sum(
+            float(m.get("percent", 0) or 0)
+            for m in milestones
+            if m.get("project_id") == project_id and m.get("id") != milestone_id
+        )
+        if used_pct + pct > 100.0 + 1e-9:
+            raise ValueError("Milestone percentages exceed 100% for this project.")
+        target["percent"] = round(pct, 2)
+        target["amount"] = round(_project_total_value(project_id) * pct / 100.0, 2)
+
+    _save(MILESTONE_FILE, milestones)
+    return target
+
+
+def update_milestone_status(milestone_id: int, status: str) -> dict | None:
+    allowed = {"pending", "delivered", "invoiced", "paid"}
+    if status not in allowed:
+        raise ValueError("Invalid milestone status.")
+    return update_milestone(milestone_id, status=status)
+
+
+def delete_milestone(milestone_id: int) -> bool:
+    milestones = _load(MILESTONE_FILE)
+    target = next((m for m in milestones if m.get("id") == milestone_id), None)
+    if not target or target.get("status") != "pending":
+        return False
+    kept = [m for m in milestones if m.get("id") != milestone_id]
+    _save(MILESTONE_FILE, kept)
+    return True
+
+
+def create_invoice_from_milestone(milestone_id: int) -> dict:
+    milestone = get_milestone(milestone_id)
+    if not milestone:
+        raise ValueError("Milestone not found.")
+    if milestone.get("invoice_id"):
+        raise ValueError("Milestone already invoiced.")
+
+    project = get_scoped_project(milestone.get("project_id"))
+    if not project:
+        raise ValueError("Project not found.")
+
+    amount = float(milestone.get("amount", 0) or 0)
+    invoice = create_invoice(
+        client_name=project.get("client_name", "Unknown"),
+        items=[{"description": milestone.get("name", "Milestone"), "hours": 1.0, "rate": amount}],
+        due_date=milestone.get("due_date") or date.today().isoformat(),
+        notes=f"Milestone invoice for project: {project.get('project_name', '')}",
+    )
+
+    update_milestone(
+        milestone_id,
+        status="invoiced",
+        invoice_id=invoice.get("id"),
+    )
+    return invoice
+
+
+def get_upcoming_milestones(days: int = 14) -> list:
+    today = date.today()
+    horizon = today + timedelta(days=max(days, 0))
+    project_map = {p.get("id"): p for p in get_scoped_projects()}
+    out = []
+    for milestone in _load(MILESTONE_FILE):
+        if milestone.get("status") not in {"pending", "delivered"}:
+            continue
+        try:
+            due = date.fromisoformat(milestone.get("due_date", ""))
+        except ValueError:
+            continue
+        if due > horizon:
+            continue
+        project = project_map.get(milestone.get("project_id"), {})
+        out.append({
+            **milestone,
+            "project_name": project.get("project_name", "Unknown"),
+            "client_name": project.get("client_name", "Unknown"),
+        })
+    return sorted(out, key=lambda m: m.get("due_date", ""))
 
 
 def save_settings(settings: dict):
@@ -915,6 +1084,142 @@ def mark_invoice_paid(inv_id: int):
     if not found:
         raise ValueError(f"Invoice #{inv_id} not found.")
     _save("invoices.json", invoices)
+
+
+def get_recurring_templates() -> list:
+    """Return invoices marked as recurring templates."""
+    return [inv for inv in get_invoices() if bool(inv.get("recurring", False))]
+
+
+def _start_of_quarter(d: date) -> date:
+    q_month = ((d.month - 1) // 3) * 3 + 1
+    return date(d.year, q_month, 1)
+
+
+def _is_recurring_due(invoice: dict, today: date | None = None) -> bool:
+    if not bool(invoice.get("recurring", False)):
+        return False
+    interval = (invoice.get("recur_interval") or "").lower()
+    if interval not in {"weekly", "monthly", "quarterly"}:
+        return False
+
+    today = today or date.today()
+    last_generated = invoice.get("last_generated") or invoice.get("issue_date")
+    if not last_generated:
+        return True
+    try:
+        last = date.fromisoformat(last_generated)
+    except ValueError:
+        return True
+
+    if interval == "weekly":
+        anchor = today - timedelta(days=today.weekday())
+    elif interval == "monthly":
+        anchor = today.replace(day=1)
+    else:
+        anchor = _start_of_quarter(today)
+    return last < anchor
+
+
+def get_due_recurring_invoices() -> list:
+    """Return recurring templates that should generate a new invoice now."""
+    due = [inv for inv in get_recurring_templates() if _is_recurring_due(inv)]
+    return sorted(due, key=lambda x: x.get("last_generated") or x.get("issue_date") or "")
+
+
+def toggle_invoice_recurring(inv_id: int) -> dict:
+    invoices = _load("invoices.json")
+    for inv in invoices:
+        if inv.get("id") == inv_id:
+            enabled = not bool(inv.get("recurring", False))
+            inv["recurring"] = enabled
+            if enabled:
+                inv["recur_interval"] = inv.get("recur_interval") or "monthly"
+                inv["last_generated"] = inv.get("last_generated") or inv.get("issue_date")
+            else:
+                inv["recur_interval"] = None
+                inv["last_generated"] = None
+            _save("invoices.json", invoices)
+            return inv
+    raise ValueError("Invoice not found.")
+
+
+def set_invoice_recurring_interval(inv_id: int, interval: str) -> dict:
+    interval = (interval or "").lower().strip()
+    if interval not in {"weekly", "monthly", "quarterly"}:
+        raise ValueError("Invalid recurring interval.")
+
+    invoices = _load("invoices.json")
+    for inv in invoices:
+        if inv.get("id") == inv_id:
+            inv["recurring"] = True
+            inv["recur_interval"] = interval
+            inv["last_generated"] = inv.get("last_generated") or inv.get("issue_date") or date.today().isoformat()
+            _save("invoices.json", invoices)
+            return inv
+    raise ValueError("Invoice not found.")
+
+
+def generate_recurring_invoice(source_id: int) -> dict:
+    """Generate one unpaid invoice from a recurring template."""
+    source = next((inv for inv in get_invoices() if inv.get("id") == source_id), None)
+    if not source:
+        raise ValueError("Source invoice not found.")
+    if not bool(source.get("recurring", False)):
+        raise ValueError("Source invoice is not recurring.")
+
+    today = date.today()
+    try:
+        source_issue = date.fromisoformat(source.get("issue_date", ""))
+        source_due = date.fromisoformat(source.get("due_date", ""))
+        delta_days = max((source_due - source_issue).days, 0)
+    except ValueError:
+        delta_days = 14
+    new_due = (today + timedelta(days=delta_days)).isoformat()
+
+    line_items = []
+    for item in source.get("items", []):
+        line_items.append({
+            "description": item.get("description", ""),
+            "hours": float(item.get("hours", 0) or 0),
+            "rate": float(item.get("rate", 0) or 0),
+        })
+
+    generated = create_invoice(
+        client_name=source.get("client_name", "Unknown"),
+        items=line_items,
+        due_date=new_due,
+        notes=source.get("notes", ""),
+        currency=source.get("currency", "USD"),
+        currency_symbol=source.get("currency_symbol", "$"),
+        tax_rate=float(source.get("tax_rate", 0) or 0),
+        exchange_rate=float(source.get("exchange_rate", 1.0) or 1.0),
+        base_currency=source.get("base_currency", ""),
+        sdlc_model_id=source.get("sdlc_model_id"),
+        project_type=source.get("project_type", ""),
+        sprint_number=source.get("sprint_number"),
+    )
+
+    invoices = _load("invoices.json")
+    for inv in invoices:
+        if inv.get("id") == source_id:
+            inv["last_generated"] = today.isoformat()
+        if inv.get("id") == generated.get("id"):
+            inv["source_recurring_id"] = source_id
+            inv["recurring"] = False
+            inv["recur_interval"] = None
+            inv["last_generated"] = None
+            generated = inv
+    _save("invoices.json", invoices)
+    return generated
+
+
+def generate_all_due_recurring() -> list:
+    """Generate invoices for all due recurring templates."""
+    created = []
+    for template in get_due_recurring_invoices():
+        created.append(generate_recurring_invoice(template["id"]))
+    return created
 
 
 def delete_invoice(inv_id: int):
@@ -1981,6 +2286,8 @@ def global_search(query: str) -> dict:
             "notes": [],
             "quotes": [],
             "contracts": [],
+            "milestones": [],
+            "weekly_reviews": [],
         }
     clients = [
         c for c in _load("clients.json")
@@ -2037,6 +2344,17 @@ def global_search(query: str) -> dict:
         or q in contract.get("contract_type", "").lower()
         or q in contract.get("notes", "").lower()
     ]
+    milestones = [
+        m for m in _load(MILESTONE_FILE)
+        if q in m.get("name", "").lower()
+        or q in m.get("notes", "").lower()
+    ]
+    weekly_reviews = [
+        r for r in _load("weekly_reviews.json")
+        if q in r.get("went_well", "").lower()
+        or q in r.get("improve", "").lower()
+        or q in r.get("next_priority", "").lower()
+    ]
     return {
         "clients": clients,
         "invoices": invoices,
@@ -2047,6 +2365,8 @@ def global_search(query: str) -> dict:
         "notes": notes,
         "quotes": quotes,
         "contracts": contracts,
+        "milestones": milestones,
+        "weekly_reviews": weekly_reviews,
     }
 
 
@@ -2112,6 +2432,7 @@ DATA_FILES = [
     SDLC_TEMPLATE_FILE, SCOPED_PROJECT_FILE,
     CLIENT_NOTES_FILE, CONTRACT_FILE, QUOTE_FILE,
     TIMER_FILE, CALENDAR_FILE,
+    "weekly_reviews.json", MILESTONE_FILE,
 ]
 
 
