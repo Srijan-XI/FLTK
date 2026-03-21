@@ -4,33 +4,58 @@
 {% block content %}
 <section class="sitemap-page">
   <div class="card sitemap-hero">
-    <h1 class="page-title">🗺 Sitemap</h1>
-    <p class="muted-text">All available app pages and their paths are listed below.</p>
+    <h1 class="page-title">Application Route Map</h1>
+    <p class="muted-text">Navigate every page from one visual map. Each node shows a real app path.</p>
     <p class="muted-text">Total routes: <strong>{{ total }}</strong></p>
-    <p class="muted-text">Created by srijan-xi</p>
   </div>
 
-  <div class="card sitemap-table-wrap">
-    <table class="data-table sitemap-table">
-      <thead>
-        <tr>
-          <th>Group</th>
-          <th>Endpoint</th>
-          <th>Path</th>
-          <th>Methods</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for route in routes %}
-        <tr>
-          <td><span class="badge badge-unpaid">{{ route.group }}</span></td>
-          <td>{{ route.endpoint }}</td>
-          <td><code>{{ route.path }}</code></td>
-          <td>{{ route.methods }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="card sitemap-map-wrap" role="region" aria-label="Route map">
+    <div class="map-root">
+      <span class="map-root-dot" aria-hidden="true"></span>
+      <span class="map-root-label">VishKron</span>
+    </div>
+
+    <div class="sitemap-map-grid">
+      {% for grouped in routes|groupby('group') %}
+      <section class="map-cluster" aria-label="{{ grouped.grouper }} routes">
+        <h2 class="map-cluster-title">{{ grouped.grouper }}</h2>
+        <ul class="map-route-list">
+          {% for route in grouped.list %}
+          <li class="map-route-item">
+            <a class="map-route-link" href="{{ route.path }}">
+              <span class="map-endpoint">{{ route.endpoint }}</span>
+              <span class="map-path">{{ route.path }}</span>
+              <span class="map-methods">{{ route.methods }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </div>
+
+    <div class="sitemap-table-wrap">
+      <table class="data-table sitemap-table">
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>Endpoint</th>
+            <th>Path</th>
+            <th>Methods</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for route in routes %}
+          <tr>
+            <td><span class="badge badge-unpaid">{{ route.group }}</span></td>
+            <td>{{ route.endpoint }}</td>
+            <td><code>{{ route.path }}</code></td>
+            <td>{{ route.methods }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 {% endblock %}

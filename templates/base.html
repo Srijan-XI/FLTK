@@ -114,25 +114,38 @@
       <div class="footer-top">
         <div class="footer-brand">
           <p class="footer-title">VishKron</p>
-          <p class="footer-subtext">Offline-first toolkit for freelancers.</p>
-          <p class="footer-tagline">For the community, by the community.</p>
+          <p class="footer-subtext">Offline-first productivity suite for independent professionals.</p>
+          <p class="footer-tagline">Built for reliable daily operations: clients, projects, billing, and reporting.</p>
         </div>
 
-        <div class="footer-quicklinks" aria-label="Quick links">
-          <a href="{{ url_for('home') }}">Home</a>
-          <a href="{{ url_for('drp.index') }}">Predictor</a>
-          <a href="{{ url_for('wft.clients') }}">Clients</a>
-          <a href="{{ url_for('wft.invoices') }}">Invoices</a>
-          <a href="{{ url_for('wft.scoped_projects') }}">Projects</a>
-          <a href="{{ url_for('wft.search') }}">Search</a>
-          <a class="footer-sitemap-link" href="{{ url_for('wft.sitemap') }}">Open Full Sitemap</a>
+        <div class="footer-nav-groups" aria-label="Footer navigation">
+          <div class="footer-group">
+            <p class="footer-group-title">Workspace</p>
+            <a href="{{ url_for('home') }}">Home</a>
+            <a href="{{ url_for('wft.search') }}">Global Search</a>
+            <a href="{{ url_for('wft.sitemap') }}">Sitemap</a>
+          </div>
+
+          <div class="footer-group">
+            <p class="footer-group-title">Business</p>
+            <a href="{{ url_for('wft.clients') }}">Clients</a>
+            <a href="{{ url_for('wft.scoped_projects') }}">Projects</a>
+            <a href="{{ url_for('wft.contracts') }}">Contracts</a>
+          </div>
+
+          <div class="footer-group">
+            <p class="footer-group-title">Finance</p>
+            <a href="{{ url_for('wft.invoices') }}">Invoices</a>
+            <a href="{{ url_for('wft.quotes') }}">Quotes</a>
+            <a href="{{ url_for('wft.reports') }}">Reports</a>
+          </div>
         </div>
       </div>
 
       <div class="footer-meta">
-        <span>VishKron Freelancer Toolkit</span>
+        <span class="footer-meta-left">VishKron Freelancer Toolkit</span>
         <span class="footer-credit">Created by srijan-xi</span>
-        <span>All features available offline</span>
+        <span class="footer-meta-right">All core features available offline</span>
       </div>
     </div>
   </footer>
