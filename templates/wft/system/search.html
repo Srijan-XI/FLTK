@@ -211,6 +211,43 @@
 </div>
 {% endif %}
 
+{% if results.milestones %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>📍 Milestones ({{ results.milestones | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Due Date</th><th>Status</th><th>Project ID</th></tr></thead>
+    <tbody>
+      {% for ms in results.milestones %}
+      <tr>
+        <td>{{ ms.name }}</td>
+        <td>{{ ms.due_date }}</td>
+        <td>{{ ms.status | title }}</td>
+        <td>{{ ms.project_id }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if results.weekly_reviews %}
+<div class="card" style="margin-bottom:1.25rem">
+  <h2>📝 Weekly Reviews ({{ results.weekly_reviews | length }})</h2>
+  <table class="data-table">
+    <thead><tr><th>Week</th><th>Summary</th><th></th></tr></thead>
+    <tbody>
+      {% for review in results.weekly_reviews %}
+      <tr>
+        <td>{{ review.week_start }}</td>
+        <td>{{ review.next_priority[:120] ~ ('…' if review.next_priority|length > 120 else '') }}</td>
+        <td><a class="btn btn-secondary btn-sm" href="{{ url_for('wft.weekly_review_detail', review_id=review.id) }}">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
 {% if total == 0 %}
 <div class="empty-state">
   <div class="empty-icon">🔍</div>
