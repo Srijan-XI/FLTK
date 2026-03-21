@@ -10,6 +10,34 @@
     <h2>Task Details</h2>
     <form method="POST">
 
+      <label>Client (optional)
+        <select name="client_id">
+          <option value="">-- Select client --</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}" {% if form_data.get('client_id') == (c.id|string) %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Project (optional)
+        <select name="project_id">
+          <option value="">-- Select project --</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}" {% if form_data.get('project_id') == (p.id|string) %}selected{% endif %}>{{ p.project_name }} · {{ p.client_name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>Milestone (optional)
+        <select name="milestone_id">
+          <option value="">-- Select milestone --</option>
+          {% for m in milestones %}
+          <option value="{{ m.id }}" {% if form_data.get('milestone_id') == (m.id|string) %}selected{% endif %}>{{ m.name }} · {{ m.project_name }} · due {{ m.due_date }}</option>
+          {% endfor %}
+        </select>
+        <small>Selecting a milestone auto-fills missing task/deadline fields.</small>
+      </label>
+
       <label>Task Name
         <input type="text" name="task_name" value="{{ form_data.get('task_name','') }}"
           placeholder="e.g. Landing page redesign" required />
@@ -36,7 +64,18 @@
         <small>Hours per day taken up by OTHER tasks</small>
       </label>
 
+      <label>
+        <input type="checkbox" name="use_calendar_blocks" {% if form_data.get('use_calendar_blocks') %}checked{% endif %} />
+        Use WFT calendar blocks as unavailable days
+      </label>
+
+      <label>
+        <input type="checkbox" name="include_weekends" {% if form_data.get('include_weekends') %}checked{% endif %} />
+        Include weekends as working days
+      </label>
+
       <button type="submit" class="btn btn-primary btn-full">Predict →</button>
+      <a href="{{ url_for('drp.report') }}" class="btn btn-secondary btn-full" style="margin-top:.6rem;display:block;text-align:center;">View Accuracy Report</a>
     </form>
   </div>
 
@@ -78,6 +117,10 @@
         <span class="stat-lbl">Days Left</span>
       </div>
       <div class="stat">
+        <span class="stat-val">{{ result.available_days }}</span>
+        <span class="stat-lbl">Working Days</span>
+      </div>
+      <div class="stat">
         <span class="stat-val">{{ result.available_hours }}h</span>
         <span class="stat-lbl">Available Hours</span>
       </div>
@@ -96,6 +139,28 @@
       <strong>Schedule Advice</strong>
       <p>{{ result.schedule_advice }}</p>
     </div>
+
+    {% if result.calendar_summary %}
+    <div class="advice-box">
+      <strong>Calendar Context</strong>
+      <p>
+        Weekends included: {{ 'Yes' if result.calendar_summary.include_weekends else 'No' }} ·
+        Blocked days applied: {{ result.calendar_summary.blocked_days }} ·
+        Working days considered: {{ result.calendar_summary.working_days_considered }}
+      </p>
+    </div>
+    {% endif %}
+
+    {% if result.linked_context and (result.linked_context.client_name or result.linked_context.project_name or result.linked_context.milestone_name) %}
+    <div class="advice-box">
+      <strong>Linked WFT Context</strong>
+      <p>
+        {% if result.linked_context.client_name %}Client: {{ result.linked_context.client_name }}{% endif %}
+        {% if result.linked_context.project_name %} · Project: {{ result.linked_context.project_name }}{% endif %}
+        {% if result.linked_context.milestone_name %} · Milestone: {{ result.linked_context.milestone_name }}{% endif %}
+      </p>
+    </div>
+    {% endif %}
 
     {% if result.alerts %}
     <div class="alerts-box">

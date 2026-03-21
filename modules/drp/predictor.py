@@ -4,12 +4,16 @@ Calculates the probability of missing a deadline based on task complexity,
 historical performance, and current workload.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import math
 
 
 def predict(task_name: str, estimated_hours: float, deadline_str: str,
-            past_speed: float, daily_workload: float) -> dict:
+            past_speed: float, daily_workload: float,
+            working_hours_per_day: float = 8.0,
+            include_weekends: bool = False,
+            unavailable_dates: set[str] | None = None,
+            linked_context: dict | None = None) -> dict:
     """
     Parameters
     ----------
@@ -23,7 +27,8 @@ def predict(task_name: str, estimated_hours: float, deadline_str: str,
     -------
     dict with keys:
         task_name, risk_level, miss_probability, available_hours,
-        adjusted_hours, days_left, recommended_daily_hours, schedule_advice, alerts
+        adjusted_hours, days_left, recommended_daily_hours, schedule_advice, alerts,
+        deadline, available_days, calendar_summary, linked_context
     """
 
     today = date.today()
@@ -33,6 +38,7 @@ def predict(task_name: str, estimated_hours: float, deadline_str: str,
         return {"error": "Invalid deadline format. Use YYYY-MM-DD."}
 
     days_left = (deadline - today).days
+    unavailable = unavailable_dates or set()
 
     # ── Edge cases ──────────────────────────────────────────────────────────
     alerts = []
@@ -42,20 +48,28 @@ def predict(task_name: str, estimated_hours: float, deadline_str: str,
             "risk_level": "CRITICAL",
             "miss_probability": 100,
             "days_left": days_left,
+            "deadline": deadline.isoformat(),
             "available_hours": 0,
+            "available_days": 0,
             "adjusted_hours": round(estimated_hours, 2),
             "recommended_daily_hours": None,
             "schedule_advice": "Deadline has already passed.",
             "alerts": ["Deadline has already passed!"],
+            "calendar_summary": {
+                "include_weekends": include_weekends,
+                "blocked_days": 0,
+                "working_days_considered": 0,
+            },
+            "linked_context": linked_context or {},
         }
 
     if days_left == 0:
         alerts.append("Deadline is today!")
 
     # ── Core calculation ─────────────────────────────────────────────────────
-    WORKING_HOURS_PER_DAY = 8.0
-    effective_daily = max(WORKING_HOURS_PER_DAY - daily_workload, 0.5)
-    available_hours = effective_daily * days_left
+    working_day_count = _count_working_days(today, deadline, include_weekends, unavailable)
+    effective_daily = max(float(working_hours_per_day) - daily_workload, 0.5)
+    available_hours = effective_daily * working_day_count
 
     # Adjust estimated hours for historical under-performance
     speed_factor = max(past_speed / 100, 0.1)   # floor at 10 % to avoid ÷0
@@ -71,7 +85,7 @@ def predict(task_name: str, estimated_hours: float, deadline_str: str,
     risk_level = _probability_to_risk(miss_probability)
 
     # Build alerts
-    if daily_workload >= WORKING_HOURS_PER_DAY:
+    if daily_workload >= float(working_hours_per_day):
         alerts.append("Your current workload already fills a full workday — no buffer left.")
     if past_speed < 60:
         alerts.append("Historical completion rate below 60 % — consider revising your estimate.")
@@ -79,23 +93,33 @@ def predict(task_name: str, estimated_hours: float, deadline_str: str,
         alerts.append("Very little time remaining. Consider negotiating the deadline.")
 
     # Recommended daily hours to finish on time
-    if days_left > 0:
-        recommended_daily = math.ceil((adjusted_hours / days_left) * 10) / 10
+    if working_day_count > 0:
+        recommended_daily = math.ceil((adjusted_hours / working_day_count) * 10) / 10
     else:
         recommended_daily = None
 
     schedule_advice = _build_advice(ratio, recommended_daily, daily_workload, past_speed)
+    if working_day_count == 0 and days_left >= 0:
+        alerts.append("No working days are available before the deadline with current calendar settings.")
 
     return {
         "task_name": task_name,
         "risk_level": risk_level,
         "miss_probability": round(miss_probability, 1),
         "days_left": days_left,
+        "deadline": deadline.isoformat(),
         "available_hours": round(available_hours, 2),
+        "available_days": working_day_count,
         "adjusted_hours": round(adjusted_hours, 2),
         "recommended_daily_hours": recommended_daily,
         "schedule_advice": schedule_advice,
         "alerts": alerts,
+        "calendar_summary": {
+            "include_weekends": include_weekends,
+            "blocked_days": len(unavailable),
+            "working_days_considered": working_day_count,
+        },
+        "linked_context": linked_context or {},
     }
 
 
@@ -153,3 +177,20 @@ def _build_advice(ratio: float, rec_daily: float | None,
         parts.append("Try to offload or pause lower-priority tasks.")
 
     return " ".join(parts)
+
+
+def _count_working_days(start: date, end: date, include_weekends: bool, unavailable_dates: set[str]) -> int:
+    if end <= start:
+        return 0
+    total = 0
+    cursor = start + timedelta(days=1)
+    while cursor <= end:
+        if not include_weekends and cursor.weekday() >= 5:
+            cursor += timedelta(days=1)
+            continue
+        if cursor.isoformat() in unavailable_dates:
+            cursor += timedelta(days=1)
+            continue
+        total += 1
+        cursor += timedelta(days=1)
+    return total

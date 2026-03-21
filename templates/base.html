@@ -29,6 +29,7 @@
       <a href="{{ url_for('home') }}" class="{% if endpoint == 'home' %}nav-active{% endif %}">Home</a>
       <a href="{{ url_for('drp.index') }}" class="{% if endpoint == 'drp.index' %}nav-active{% endif %}">Deadline Predictor</a>
       <a href="{{ url_for('drp.history') }}" class="{% if endpoint == 'drp.history' %}nav-active{% endif %}">DRP History</a>
+      <a href="{{ url_for('drp.report') }}" class="{% if endpoint == 'drp.report' %}nav-active{% endif %}">DRP Report</a>
 
       <div class="nav-group" data-nav-group>
         <span class="nav-label {% if projects_active %}nav-active{% endif %}" data-nav-label>Projects ▾</span>

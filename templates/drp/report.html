@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}DRP Accuracy Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">📈 DRP Accuracy Report</h1>
+  <a class="btn btn-secondary btn-sm" href="{{ url_for('drp.history') }}">← Back to History</a>
+</div>
+
+{% if report.count == 0 %}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-icon">📉</div>
+    <p>No completed prediction outcomes yet.</p>
+    <p class="muted-text">Mark history entries as completed to unlock calibration metrics.</p>
+  </div>
+</div>
+{% else %}
+<div class="card">
+  <h2>Model Health</h2>
+  <div class="stat-grid" style="margin-top:.75rem;">
+    <div class="stat">
+      <span class="stat-val">{{ report.count }}</span>
+      <span class="stat-lbl">Completed Samples</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val">{{ report.mean_abs_error_pct }}%</span>
+      <span class="stat-lbl">Mean Abs Error</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val">{{ report.mean_bias_pct }}%</span>
+      <span class="stat-lbl">Bias (Actual vs Pred)</span>
+    </div>
+    <div class="stat">
+      <span class="stat-val">{{ report.brier_score }}</span>
+      <span class="stat-lbl">Brier Score</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+  <h2>Risk Bucket Calibration</h2>
+  <div class="table-shell" style="margin-top:.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Bucket</th>
+          <th>Samples</th>
+          <th>Predicted Miss %</th>
+          <th>Actual Miss %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for name, row in report.bucket_accuracy.items() %}
+        <tr>
+          <td>{{ name|title }}</td>
+          <td>{{ row.count }}</td>
+          <td>{{ row.predicted_miss_pct }}%</td>
+          <td>{{ row.actual_miss_pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+  <h2>Recent Outcomes</h2>
+  <div class="table-shell" style="margin-top:.75rem;">
+    <table>
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Pred Miss %</th>
+          <th>Actual Missed</th>
+          <th>Adj Hours</th>
+          <th>Actual Hours</th>
+          <th>Error %</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in report.recent_rows %}
+        <tr>
+          <td>{{ row.task_name }}</td>
+          <td>{{ row.miss_probability }}%</td>
+          <td>{{ "Yes" if row.actual_missed else "No" }}</td>
+          <td>{{ row.adjusted_hours }}h</td>
+          <td>{{ row.actual_hours }}h</td>
+          <td>{{ row.error_pct }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

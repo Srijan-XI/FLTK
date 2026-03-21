@@ -4,11 +4,14 @@
 {% block content %}
 <div class="page-header">
     <h1 class="page-title">📋 Prediction History</h1>
-    {% if entries %}
-    <form method="POST" action="{{ url_for('drp.clear_history') }}" onsubmit="return confirm('Clear all history?')">
-        <button class="btn btn-danger btn-sm">🗑 Clear All</button>
-    </form>
-    {% endif %}
+    <div style="display:flex;gap:.5rem;align-items:center;">
+        <a class="btn btn-secondary btn-sm" href="{{ url_for('drp.report') }}">📈 Accuracy Report</a>
+        {% if entries %}
+        <form method="POST" action="{{ url_for('drp.clear_history') }}" onsubmit="return confirm('Clear all history?')">
+            <button class="btn btn-danger btn-sm">🗑 Clear All</button>
+        </form>
+        {% endif %}
+    </div>
 </div>
 
 {% if entries %}
@@ -44,6 +47,16 @@
             </div>
         </div>
         <p class="advice-text">{{ e.schedule_advice }}</p>
+
+        {% if e.actual_hours and e.completed_on %}
+        <p class="muted-text">Actual: {{ e.actual_hours }}h · Completed on: {{ e.completed_on }}</p>
+        {% else %}
+        <form method="POST" action="{{ url_for('drp.complete_history', entry_id=e.id) }}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;margin-top:.75rem;">
+            <input type="number" min="0.1" step="0.1" name="actual_hours" placeholder="Actual hours" required />
+            <input type="date" name="completed_on" required />
+            <button class="btn btn-primary btn-sm" type="submit">Mark Completed</button>
+        </form>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
