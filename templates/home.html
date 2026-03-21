@@ -51,25 +51,25 @@
 
   <!-- Charts row -->
   {% if summary and (summary.income_by_month or summary.weekly_hours) %}
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:1.25rem; margin-bottom:2rem">
+  <div class="home-charts-grid">
 
     {% if summary.income_by_month %}
-    <div class="card" style="text-align:left">
-      <h2 style="font-size:1rem; margin-bottom:.75rem">📈 Income by Month</h2>
+    <div class="card chart-card">
+      <h2 class="chart-title">📈 Income by Month</h2>
       <canvas id="incomeChart" height="180"></canvas>
     </div>
     {% endif %}
 
     {% if summary.weekly_hours %}
-    <div class="card" style="text-align:left">
-      <h2 style="font-size:1rem; margin-bottom:.75rem">⏱ Hours by Week</h2>
+    <div class="card chart-card">
+      <h2 class="chart-title">⏱ Hours by Week</h2>
       <canvas id="hoursChart" height="180"></canvas>
     </div>
     {% endif %}
 
     {% if summary.income_by_client %}
-    <div class="card" style="text-align:left">
-      <h2 style="font-size:1rem; margin-bottom:.75rem">👥 Income by Client</h2>
+    <div class="card chart-card">
+      <h2 class="chart-title">👥 Income by Client</h2>
       <canvas id="clientChart" height="180"></canvas>
     </div>
     {% endif %}
@@ -151,8 +151,17 @@
 {% if summary and (summary.income_by_month or summary.weekly_hours or summary.income_by_client) %}
 <script src="{{ url_for('static', filename='js/chart.umd.min.js') }}"></script>
 <script>
-Chart.defaults.color = '#8896b0';
-Chart.defaults.borderColor = '#2a3347';
+const rootStyle = getComputedStyle(document.documentElement);
+const chartText = rootStyle.getPropertyValue('--muted').trim() || '#7d8ba1';
+const chartGrid = rootStyle.getPropertyValue('--border').trim() || '#293648';
+const chartPrimary = rootStyle.getPropertyValue('--primary').trim() || '#19a9bc';
+const chartSuccess = rootStyle.getPropertyValue('--success').trim() || '#2ec489';
+const chartWarning = rootStyle.getPropertyValue('--warning').trim() || '#f2b544';
+const chartDanger = rootStyle.getPropertyValue('--danger').trim() || '#df5b57';
+const chartSurface = rootStyle.getPropertyValue('--surface').trim() || '#142032';
+
+Chart.defaults.color = chartText;
+Chart.defaults.borderColor = chartGrid;
 
 {% if summary.income_by_month %}
 new Chart(document.getElementById('incomeChart'), {
@@ -162,15 +171,15 @@ new Chart(document.getElementById('incomeChart'), {
     datasets: [{
       label: 'Income',
       data: {{ summary.income_by_month.values() | list | tojson }},
-      backgroundColor: 'rgba(79,142,247,.7)',
+      backgroundColor: `${chartPrimary}B3`,
       borderRadius: 5,
     }]
   },
   options: {
     plugins: { legend: { display: false } },
     scales: {
-      x: { grid: { color: '#2a3347' } },
-      y: { grid: { color: '#2a3347' } },
+      x: { grid: { color: chartGrid } },
+      y: { grid: { color: chartGrid } },
     },
     responsive: true,
   }
@@ -185,8 +194,8 @@ new Chart(document.getElementById('hoursChart'), {
     datasets: [{
       label: 'Hours',
       data: {{ summary.weekly_hours | map(attribute='hours') | list | tojson }},
-      borderColor: '#30d988',
-      backgroundColor: 'rgba(48,217,136,.15)',
+      borderColor: chartSuccess,
+      backgroundColor: `${chartSuccess}33`,
       tension: 0.4,
       fill: true,
     }]
@@ -194,8 +203,8 @@ new Chart(document.getElementById('hoursChart'), {
   options: {
     plugins: { legend: { display: false } },
     scales: {
-      x: { grid: { color: '#2a3347' } },
-      y: { grid: { color: '#2a3347' }, beginAtZero: true },
+      x: { grid: { color: chartGrid } },
+      y: { grid: { color: chartGrid }, beginAtZero: true },
     },
     responsive: true,
   }
@@ -210,12 +219,12 @@ new Chart(document.getElementById('clientChart'), {
     datasets: [{
       data: {{ summary.income_by_client.values() | list | tojson }},
       backgroundColor: [
-        'rgba(79,142,247,.8)', 'rgba(48,217,136,.8)', 'rgba(245,200,66,.8)',
-        'rgba(167,139,250,.8)', 'rgba(240,128,48,.8)', 'rgba(242,92,92,.8)',
-        'rgba(56,189,248,.8)', 'rgba(134,239,172,.8)',
+        `${chartPrimary}CC`, `${chartSuccess}CC`, `${chartWarning}CC`,
+        '#ef8f34cc', `${chartDanger}CC`, '#4ca6ffcc',
+        '#72d3a3cc', '#f0d86acc',
       ],
       borderWidth: 2,
-      borderColor: '#1e2535',
+      borderColor: chartSurface,
     }]
   },
   options: {

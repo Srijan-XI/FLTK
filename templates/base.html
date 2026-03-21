@@ -4,9 +4,18 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>{% block title %}VishKron {% endblock %} | VishKron </title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
 </head>
 <body>
+  {% set endpoint = request.endpoint or '' %}
+  {% set system_endpoints = ['wft.settings', 'wft.backup'] %}
+  {% set workflow_active = endpoint.startswith('wft.') and endpoint not in system_endpoints %}
+  {% set system_active = endpoint in system_endpoints %}
+  <div class="ambient-orb ambient-orb-a" aria-hidden="true"></div>
+  <div class="ambient-orb ambient-orb-b" aria-hidden="true"></div>
   <header class="navbar">
     <a class="brand" href="{{ url_for('home') }}">⚡ VishKron</a>
 
@@ -15,42 +24,41 @@
     </button>
 
     <nav id="main-nav">
-      <a href="{{ url_for('drp.index') }}">Deadline Predictor</a>
-      <a href="{{ url_for('drp.history') }}">DRP History</a>
+      <a href="{{ url_for('drp.index') }}" class="{% if endpoint == 'drp.index' %}nav-active{% endif %}">Deadline Predictor</a>
+      <a href="{{ url_for('drp.history') }}" class="{% if endpoint == 'drp.history' %}nav-active{% endif %}">DRP History</a>
       <div class="nav-group" id="wft-nav-group">
-        <span class="nav-label" id="wft-label">Workflow ▾</span>
+        <span class="nav-label {% if workflow_active %}nav-active{% endif %}" id="wft-label">Workflow ▾</span>
         <div class="dropdown" id="wft-dropdown">
-          <a href="{{ url_for('wft.templates') }}">📄 Proposal Templates</a>
-          <a href="{{ url_for('wft.sdlc_templates') }}">🧩 SDLC Templates</a>
-          <a href="{{ url_for('wft.scoped_projects') }}">🗂 Scoped Projects</a>
-          <a href="{{ url_for('wft.clients') }}">👥 Clients</a>
-          <a href="{{ url_for('wft.quotes') }}">💼 Quotes</a>
-          <a href="{{ url_for('wft.invoices') }}">🧾 Invoices</a>
-          <a href="{{ url_for('wft.contracts') }}">📝 Contracts</a>
-          <a href="{{ url_for('wft.hours') }}">⏱ Work Hours</a>
-          <a href="{{ url_for('wft.timer') }}">⏱ Live Timer</a>
-          <a href="{{ url_for('wft.calendar') }}">📅 Calendar</a>
-          <a href="{{ url_for('wft.expenses') }}">💸 Expenses</a>
-          <a href="{{ url_for('wft.tax_estimator') }}">🧮 Tax Estimator</a>
-          <a href="{{ url_for('wft.reports') }}">📊 Profitability</a>
+          <a href="{{ url_for('wft.templates') }}" class="{% if endpoint == 'wft.templates' %}nav-active{% endif %}">📄 Proposal Templates</a>
+          <a href="{{ url_for('wft.sdlc_templates') }}" class="{% if endpoint == 'wft.sdlc_templates' %}nav-active{% endif %}">🧩 SDLC Templates</a>
+          <a href="{{ url_for('wft.scoped_projects') }}" class="{% if endpoint == 'wft.scoped_projects' %}nav-active{% endif %}">🗂 Scoped Projects</a>
+          <a href="{{ url_for('wft.clients') }}" class="{% if endpoint == 'wft.clients' %}nav-active{% endif %}">👥 Clients</a>
+          <a href="{{ url_for('wft.quotes') }}" class="{% if endpoint == 'wft.quotes' %}nav-active{% endif %}">💼 Quotes</a>
+          <a href="{{ url_for('wft.invoices') }}" class="{% if endpoint == 'wft.invoices' %}nav-active{% endif %}">🧾 Invoices</a>
+          <a href="{{ url_for('wft.contracts') }}" class="{% if endpoint == 'wft.contracts' %}nav-active{% endif %}">📝 Contracts</a>
+          <a href="{{ url_for('wft.hours') }}" class="{% if endpoint == 'wft.hours' %}nav-active{% endif %}">⏱ Work Hours</a>
+          <a href="{{ url_for('wft.timer') }}" class="{% if endpoint == 'wft.timer' %}nav-active{% endif %}">⏱ Live Timer</a>
+          <a href="{{ url_for('wft.calendar') }}" class="{% if endpoint == 'wft.calendar' %}nav-active{% endif %}">📅 Calendar</a>
+          <a href="{{ url_for('wft.expenses') }}" class="{% if endpoint == 'wft.expenses' %}nav-active{% endif %}">💸 Expenses</a>
+          <a href="{{ url_for('wft.tax_estimator') }}" class="{% if endpoint == 'wft.tax_estimator' %}nav-active{% endif %}">🧮 Tax Estimator</a>
+          <a href="{{ url_for('wft.reports') }}" class="{% if endpoint == 'wft.reports' %}nav-active{% endif %}">📊 Profitability</a>
         </div>
       </div>
       <div class="nav-group" id="system-nav-group">
-        <span class="nav-label" id="system-label">System ▾</span>
+        <span class="nav-label {% if system_active %}nav-active{% endif %}" id="system-label">System ▾</span>
         <div class="dropdown" id="system-dropdown">
-          <a href="{{ url_for('wft.settings') }}">⚙️ Settings</a>
+          <a href="{{ url_for('wft.settings') }}" class="{% if endpoint == 'wft.settings' %}nav-active{% endif %}">⚙️ Settings</a>
           <div class="dropdown-sep" role="separator" aria-hidden="true"></div>
-          <a href="{{ url_for('wft.backup') }}">🗄️ Backup</a>
+          <a href="{{ url_for('wft.backup') }}" class="{% if endpoint == 'wft.backup' %}nav-active{% endif %}">🗄️ Backup</a>
         </div>
       </div>
     </nav>
 
   <!-- Also add search bar to header -->
-  <form id="header-search" method="GET" action="{{ url_for('wft.search') }}"
-    style="display:flex; align-items:center; gap:.4rem; margin-left:auto; margin-right:.5rem">
+  <form id="header-search" method="GET" action="{{ url_for('wft.search') }}" class="header-search-form">
     <input type="text" name="q" placeholder="Search…" class="search-input"
-      style="width:140px" title="Global Search" />
-    <button type="submit" class="btn btn-secondary btn-sm" style="padding:.3rem .6rem">🔍</button>
+      title="Global Search" />
+    <button type="submit" class="btn btn-secondary btn-sm header-search-btn">🔍</button>
   </form>
 
   <button class="theme-toggle" id="theme-toggle" title="Toggle theme">🌙</button>
@@ -74,7 +82,7 @@
 
   <footer>
     <p>VishKron — Freelancer Toolkit</p>
-    <p style="margin-top:.25rem; font-size:.75rem;">For the community, by the community.</p>
+    <p class="footer-subtext">For the community, by the community.</p>
   </footer>
 
   <!-- Watermark -->

@@ -24,11 +24,23 @@ ham.addEventListener('click', () => {
 const wftGroup = document.getElementById('wft-nav-group');
 const wftLabel = document.getElementById('wft-label');
 const wftDrop  = document.getElementById('wft-dropdown');
+const systemGroup = document.getElementById('system-nav-group');
+const systemLabel = document.getElementById('system-label');
+const systemDrop  = document.getElementById('system-dropdown');
+
 wftLabel.addEventListener('click', () => {
+  systemDrop.classList.remove('open');
   wftDrop.classList.toggle('open');
 });
+
+systemLabel.addEventListener('click', () => {
+  wftDrop.classList.remove('open');
+  systemDrop.classList.toggle('open');
+});
+
 document.addEventListener('click', (e) => {
   if (!wftGroup.contains(e.target)) wftDrop.classList.remove('open');
+  if (!systemGroup.contains(e.target)) systemDrop.classList.remove('open');
 });
 
 // ── Toast notifications ─────────────────────────────────────────────────
