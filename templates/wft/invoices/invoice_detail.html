@@ -38,7 +38,7 @@
       </tr>
     </thead>
     <tbody>
-      {% for item in inv.items %}
+      {% for item in inv['items'] %}
       <tr>
         <td>{{ item.description }}</td>
         <td>{{ item.hours }}</td>
@@ -91,6 +91,62 @@
       onsubmit="return confirm('Delete this invoice permanently?')">
       <button class="btn btn-danger">🗑 Delete</button>
     </form>
+  </div>
+</div>
+
+<!-- SDLC Models Section -->
+<div style="margin-top:2rem">
+  <h2 style="margin-bottom:1.5rem; padding-bottom:.5rem; border-bottom:2px solid var(--border)">Project Delivery Models</h2>
+  <p style="color:var(--muted); margin-bottom:1.5rem">Choose an SDLC model that aligns with your project's scope, risk, and client expectations.</p>
+  
+  <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:1.5rem">
+    {% for template in sdlc_templates %}
+    <div class="card" style="display:flex; flex-direction:column; border-left:4px solid var(--accent)">
+      <div style="margin-bottom:1rem">
+        <h3 style="margin:0 0 .5rem 0; font-size:1.1rem">{{ template.name }}</h3>
+        <p style="margin:0; color:var(--muted); font-size:.9rem; font-weight:500">{{ template.best_for }}</p>
+      </div>
+      
+      <p style="margin:.8rem 0; color:var(--text); line-height:1.5">{{ template.summary }}</p>
+      
+      <div style="flex:1">
+        <p style="margin:.8rem 0 .4rem 0; font-weight:600; font-size:.95rem">Phases:</p>
+        <ul style="margin:0 0 .8rem 0; padding-left:1.2rem; font-size:.9rem">
+          {% for phase in template.phases %}
+          <li style="margin:.3rem 0">{{ phase }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      
+      <div style="margin:.8rem 0; padding:.8rem; background:var(--hover); border-radius:var(--radius)">
+        <p style="margin:0 0 .4rem 0; font-weight:600; font-size:.9rem">Strengths:</p>
+        <ul style="margin:0; padding-left:1.2rem; font-size:.85rem">
+          {% for strength in template.strengths %}
+          <li style="margin:.2rem 0">{{ strength }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      
+      <div style="margin:.8rem 0; padding:.8rem; background:var(--hover); border-radius:var(--radius)">
+        <p style="margin:0 0 .4rem 0; font-weight:600; font-size:.9rem">Associated Risks:</p>
+        <ul style="margin:0; padding-left:1.2rem; font-size:.85rem">
+          {% for risk in template.risks %}
+          <li style="margin:.2rem 0">{{ risk }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      
+      {% if template.tags %}
+      <div style="margin:.8rem 0 0 0; display:flex; flex-wrap:wrap; gap:.4rem">
+        {% for tag in template.tags %}
+        <span class="badge" style="background:var(--accent); color:white; font-size:.8rem; padding:.3rem .6rem; border-radius:.3rem">{{ tag }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      
+      <a href="{{ url_for('wft.scoped_projects') }}" class="btn btn-secondary" style="margin-top:1rem; width:100%; text-align:center; text-decoration:none">+ Use This Model</a>
+    </div>
+    {% endfor %}
   </div>
 </div>
 {% endblock %}

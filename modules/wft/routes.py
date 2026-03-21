@@ -652,7 +652,8 @@ def invoice_detail(inv_id):
         return redirect(url_for("wft.invoices"))
     cfg = h.get_settings()
     inv["display_total"] = h.get_invoice_display_total(inv)
-    return render_template("wft/invoices/invoice_detail.html", inv=inv, cfg=cfg)
+    sdlc_templates = h.get_sdlc_templates()
+    return render_template("wft/invoices/invoice_detail.html", inv=inv, cfg=cfg, sdlc_templates=sdlc_templates)
 
 
 @wft_bp.route("/invoices/pay/<int:inv_id>", methods=["POST"])
