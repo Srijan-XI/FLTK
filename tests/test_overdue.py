@@ -64,3 +64,15 @@ def test_reminder_email_contains_key_fields(temp_data_dir):
     assert inv["invoice_number"] in draft
     assert "Delta" in draft
     assert "Subject:" in draft
+
+
+def test_create_invoice_allows_custom_issue_date(temp_data_dir):
+    h.save_settings(h.DEFAULT_SETTINGS)
+    inv = h.create_invoice(
+        client_name="IssueDate Co",
+        items=[{"description": "Task", "hours": 1, "rate": 100}],
+        due_date="2030-01-20",
+        issue_date="2030-01-10",
+    )
+
+    assert inv["issue_date"] == "2030-01-10"

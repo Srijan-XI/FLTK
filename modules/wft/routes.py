@@ -2,6 +2,7 @@ from flask import render_template, request, redirect, url_for, flash, Response, 
 from modules.wft import wft_bp
 import modules.wft.helpers as h
 import os
+from datetime import date
 
 
 def _render_pdf_response(template_name: str, context: dict, filename: str,
@@ -850,6 +851,14 @@ def new_invoice():
     cfg = h.get_settings()
     if request.method == "POST":
         f = request.form
+        issue_date = (f.get("issue_date") or "").strip()
+        if issue_date:
+            try:
+                date.fromisoformat(issue_date)
+            except ValueError:
+                flash("Invalid issued date.", "error")
+                return redirect(url_for("wft.new_invoice"))
+
         descs = f.getlist("description")
         hours_list = f.getlist("hours")
         rates = f.getlist("rate")
@@ -890,6 +899,7 @@ def new_invoice():
             items=items,
             due_date=f["due_date"],
             notes=f.get("notes", ""),
+            issue_date=issue_date or None,
             currency=currency,
             currency_symbol=symbol,
             tax_rate=tax_rate,
@@ -899,7 +909,7 @@ def new_invoice():
         flash(f"Invoice {invoice['invoice_number']} created.", "success")
         return redirect(url_for("wft.invoice_detail", inv_id=invoice["id"]))
     return render_template("wft/invoices/invoice_form.html", clients=h.get_clients(),
-                           cfg=cfg, currencies=h.CURRENCY_OPTIONS)
+                           cfg=cfg, currencies=h.CURRENCY_OPTIONS, today=date.today().isoformat())
 
 
 @wft_bp.route("/invoices/<int:inv_id>")

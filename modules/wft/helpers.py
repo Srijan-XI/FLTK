@@ -1174,7 +1174,7 @@ def _enrich_invoice_finance(inv: dict) -> dict:
 
 
 def create_invoice(client_name: str, items: list[dict], due_date: str,
-                   notes: str = "", currency: str = "USD",
+                   notes: str = "", issue_date: str | None = None, currency: str = "USD",
                    currency_symbol: str = "$", tax_rate: float = 0.0,
                    exchange_rate: float = 1.0, base_currency: str = "",
                    sdlc_model_id: int | None = None, project_type: str = "",
@@ -1200,7 +1200,7 @@ def create_invoice(client_name: str, items: list[dict], due_date: str,
         "id": inv_id,
         "invoice_number": f"INV-{inv_id:04d}",
         "client_name": client_name,
-        "issue_date": date.today().isoformat(),
+        "issue_date": issue_date or date.today().isoformat(),
         "due_date": due_date,
         "items": items,
         "subtotal": subtotal,
