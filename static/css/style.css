@@ -1252,4 +1252,14 @@ footer {
   body { background: #fff; color: #111; }
   .card { border: none; box-shadow: none; }
   .invoice-header h1 { color: #3a73e0; }
+  body.print-invoice .no-print,
+  body.print-invoice .invoice-extras,
+  body.print-invoice .invoice-actions {
+    display: none !important;
+  }
+  body.print-invoice .invoice-sheet {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+  }
 }

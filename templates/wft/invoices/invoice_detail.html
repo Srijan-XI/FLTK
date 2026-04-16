@@ -79,7 +79,7 @@
   </div>
   {% endif %}
 
-  <div class="card" style="margin-top:1rem">
+  <div class="card no-print" style="margin-top:1rem">
     <h2 style="margin-top:0">Payments & Adjustments (Ledger)</h2>
     <div class="two-col">
       <form method="POST" action="{{ url_for('wft.invoice_add_payment', inv_id=inv.id) }}">
@@ -135,7 +135,7 @@
     {% endif %}
   </div>
 
-  <div class="card" style="margin-top:1rem">
+  <div class="card no-print" style="margin-top:1rem">
     <h2 style="margin-top:0">Attachments</h2>
     <form method="POST" action="{{ url_for('wft.upload_attachment') }}" enctype="multipart/form-data" style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center">
       <input type="hidden" name="entity_type" value="invoice">
@@ -167,7 +167,7 @@
     {% endif %}
   </div>
 
-  <div class="card" style="margin-top:1rem">
+  <div class="card no-print" style="margin-top:1rem">
     <h2 style="margin-top:0">Recurring Invoice</h2>
     {% if inv.get('recurring') %}
     <p style="margin:.35rem 0">
@@ -219,14 +219,14 @@
   {% endif %}
 
   <!-- Actions -->
-  <div class="btn-group" style="margin-top:1.5rem; justify-content:flex-start">
+  <div class="btn-group invoice-actions no-print" style="margin-top:1.5rem; justify-content:flex-start">
     {% if inv.status != 'paid' %}
     <form method="POST" action="{{ url_for('wft.pay_invoice', inv_id=inv.id) }}">
       <button class="btn btn-primary">✓ Mark as Paid</button>
     </form>
     {% endif %}
     <a class="btn btn-secondary" href="{{ url_for('wft.invoice_pdf', inv_id=inv.id) }}">⬇ Download PDF</a>
-    <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
+    <button type="button" class="btn btn-secondary" onclick="printInvoice()">🖨 Print</button>
     <form method="POST" action="{{ url_for('wft.delete_invoice', inv_id=inv.id) }}"
       onsubmit="return confirm('Delete this invoice permanently?')">
       <button class="btn btn-danger">🗑 Delete</button>
@@ -235,7 +235,7 @@
 </div>
 
 <!-- SDLC Models Section -->
-<div style="margin-top:2rem">
+<div class="invoice-extras no-print" style="margin-top:2rem">
   <h2 style="margin-bottom:1.5rem; padding-bottom:.5rem; border-bottom:2px solid var(--border)">Project Delivery Models</h2>
   <p style="color:var(--muted); margin-bottom:1.5rem">Choose an SDLC model that aligns with your project's scope, risk, and client expectations.</p>
   
@@ -289,4 +289,12 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+  function printInvoice() {
+    document.body.classList.add('print-invoice');
+    window.print();
+    window.setTimeout(() => document.body.classList.remove('print-invoice'), 0);
+  }
+</script>
 {% endblock %}
