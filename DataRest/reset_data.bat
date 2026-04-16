@@ -1,8 +1,9 @@
 @echo off
 setlocal
 
-set "ROOT=%~dp0"
-set "DATA_DIR=%ROOT%data"
+set "SCRIPT_DIR=%~dp0"
+for %%I in ("%SCRIPT_DIR%..") do set "ROOT=%%~fI"
+set "DATA_DIR=%ROOT%\data"
 
 if not exist "%DATA_DIR%" (
     mkdir "%DATA_DIR%"
